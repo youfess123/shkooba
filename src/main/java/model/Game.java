@@ -113,6 +113,8 @@ public class Game {
         return Collections.unmodifiableList(moveHistory);
     }
 
+    // In Game.java
+
     public boolean executeMove(Move move) {
         if (gameOver) {
             logger.warning("Game is already over");
@@ -120,7 +122,8 @@ public class Game {
         }
 
         if (move.getPlayer() != getCurrentPlayer()) {
-            logger.warning("Not this player's turn");
+            logger.warning("Not this player's turn: " + move.getPlayer().getName() +
+                    " attempted to move during " + getCurrentPlayer().getName() + "'s turn");
             return false;
         }
 
@@ -156,6 +159,8 @@ public class Game {
             }
 
             nextPlayer();
+            logger.info("Next player is: " + getCurrentPlayer().getName() +
+                    (getCurrentPlayer().isComputer() ? " (Computer)" : " (Human)"));
         }
 
         return success;

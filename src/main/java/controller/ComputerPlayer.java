@@ -28,6 +28,9 @@ public class ComputerPlayer {
         return player;
     }
 
+    // In ComputerPlayer.java
+
+    // Make sure the generateMove method is robust
     public Move generateMove(Game game) {
         try {
             logger.info("Computer player generating move at difficulty " + difficultyLevel);
@@ -45,13 +48,22 @@ public class ComputerPlayer {
                 return generateFallbackMove(game);
             }
 
+            // Sort moves by score in descending order
             possibleMoves.sort(Comparator.comparing(Move::getScore).reversed());
+
+            // Log scores to help debug AI behavior
+            for (int i = 0; i < Math.min(3, possibleMoves.size()); i++) {
+                Move m = possibleMoves.get(i);
+                logger.info("Potential move " + i + ": " + m.getScore() + " points - "
+                        + (m.getFormedWords().isEmpty() ? "No words" : String.join(", ", m.getFormedWords())));
+            }
+
             Move selectedMove = selectMoveByDifficulty(possibleMoves);
             logger.info("Computer selected move with score: " + selectedMove.getScore());
 
             return selectedMove;
         } catch (Exception e) {
-            logger.severe("Error generating computer move: " + e.getMessage());
+            logger.severe("Error generating computer move: " + e.getMessage() + "\n" + e.getStackTrace()[0]);
             return Move.createPassMove(player);
         }
     }

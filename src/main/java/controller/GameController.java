@@ -27,6 +27,7 @@ public class GameController {
     private Runnable rackUpdateListener;
     private Runnable playerUpdateListener;
     private Runnable gameOverListener;
+    private Runnable temporaryPlacementListener;
 
     public GameController(Game game) {
         this.game = game;
@@ -71,7 +72,6 @@ public class GameController {
             updateRack();
             updateCurrentPlayer();
 
-
             // Check game over
             if (game.isGameOver()) {
                 gameInProgress = false;
@@ -81,16 +81,54 @@ public class GameController {
                 return true;
             }
 
-            // Trigger computer move if needed
+            // Trigger computer move if needed - ensure this happens after player moves
             makeComputerMoveIfNeeded();
         }
 
         return success;
     }
 
+// Update commitPlacement, exchangeTiles, and passTurn methods to also trigger AI moves
+
+    public boolean commitPlacement() {
+        boolean success = moveHandler.commitPlacement();
+        if (success) {
+            updateBoard();
+            updateRack();
+            updateCurrentPlayer();
+            makeComputerMoveIfNeeded(); // Add this call to ensure AI plays after player
+        }
+        return success;
+    }
+
+    public boolean exchangeTiles() {
+        List<Tile> selectedTiles = tilePlacer.getSelectedTiles();
+        boolean success = moveHandler.exchangeTiles(selectedTiles);
+        if (success) {
+            tilePlacer.clearSelectedTiles();
+            updateBoard();
+            updateRack();
+            updateCurrentPlayer();
+            makeComputerMoveIfNeeded(); // Add this call
+        }
+        return success;
+    }
+
+    public boolean passTurn() {
+        boolean success = moveHandler.passTurn();
+        if (success) {
+            updateBoard();
+            updateRack();
+            updateCurrentPlayer();
+            makeComputerMoveIfNeeded(); // Add this call
+        }
+        return success;
+    }
+
+    // Improve the makeComputerMoveIfNeeded method to handle multiple AI turns if needed
     public void makeComputerMoveIfNeeded() {
         Player currentPlayer = game.getCurrentPlayer();
-        if (currentPlayer.isComputer() && !computerMoveInProgress) {
+        if (currentPlayer.isComputer() && !computerMoveInProgress && gameInProgress) {
             logger.info("Computer's turn - preparing move");
             computerMoveInProgress = true;
             updateCurrentPlayer();
@@ -137,6 +175,8 @@ public class GameController {
         return emergencyTimer;
     }
 
+    // In GameController.java
+
     private void executeComputerMove(ComputerPlayer computerPlayer, Player currentPlayer,
                                      ScheduledExecutorService emergencyTimer) {
         executor.submit(() -> {
@@ -149,7 +189,15 @@ public class GameController {
 
                 Platform.runLater(() -> {
                     try {
-                        makeMove(computerMove);
+                        // Use makeMove instead of directly calling game.executeMove
+                        // This ensures that if there are multiple AI players, they will play in sequence
+                        boolean success = makeMove(computerMove);
+
+                        if (!success) {
+                            logger.warning("Computer move failed, passing turn");
+                            Move passMove = Move.createPassMove(currentPlayer);
+                            makeMove(passMove);
+                        }
                     } catch (Exception e) {
                         logger.severe("Error executing computer move: " + e.getMessage());
                         Move passMove = Move.createPassMove(currentPlayer);
@@ -170,53 +218,35 @@ public class GameController {
         });
     }
 
-    // Player move handling methods
+    public void setTemporaryPlacementListener(Runnable listener) {
+        this.temporaryPlacementListener = listener;
+    }
 
     public boolean placeTileTemporarily(int rackIndex, int row, int col) {
         boolean success = moveHandler.placeTileTemporarily(rackIndex, row, col);
         if (success) {
             updateBoard();
             updateRack();
+
+            // Add this line to update button states when tiles are placed
+            if (temporaryPlacementListener != null) {
+                Platform.runLater(temporaryPlacementListener);
+            }
         }
         return success;
     }
 
-    public boolean commitPlacement() {
-        boolean success = moveHandler.commitPlacement();
-        if (success) {
-            updateBoard();
-            updateRack();
-            updateCurrentPlayer();
-        }
-        return success;
-    }
 
     public void cancelPlacements() {
         moveHandler.cancelPlacements();
         updateBoard();
+
+        // Add this line to update button states when placements are canceled
+        if (temporaryPlacementListener != null) {
+            Platform.runLater(temporaryPlacementListener);
+        }
     }
 
-    public boolean exchangeTiles() {
-        List<Tile> selectedTiles = tilePlacer.getSelectedTiles();
-        boolean success = moveHandler.exchangeTiles(selectedTiles);
-        if (success) {
-            tilePlacer.clearSelectedTiles();
-            updateBoard();
-            updateRack();
-            updateCurrentPlayer();
-        }
-        return success;
-    }
-
-    public boolean passTurn() {
-        boolean success = moveHandler.passTurn();
-        if (success) {
-            updateBoard();
-            updateRack();
-            updateCurrentPlayer();
-        }
-        return success;
-    }
 
     public void selectTileFromRack(int index) {
         if (!gameInProgress) {

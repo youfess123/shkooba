@@ -47,9 +47,14 @@ public class GameView extends BorderPane {
         controller.setPlayerUpdateListener(() -> {
             gameInfoView.updatePlayerInfo();
             rackView.updateRack();
+            controlPanel.updateButtonStates();
         });
         controller.setGameOverListener(this::showGameOverDialog);
+
+        // Add this line to update button states when temporary placements change
+        controller.setTemporaryPlacementListener(() -> controlPanel.updateButtonStates());
     }
+
 
     private void showGameOverDialog() {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);

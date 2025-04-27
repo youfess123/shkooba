@@ -256,6 +256,10 @@ public class GameController {
         Player currentPlayer = game.getCurrentPlayer();
         tilePlacer.selectTileFromRack(currentPlayer, index);
         updateRack();
+
+        if (temporaryPlacementListener != null) {
+            Platform.runLater(temporaryPlacementListener);
+        }
     }
 
     public void setBlankTileLetter(int rackIndex, char letter) {

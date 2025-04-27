@@ -69,16 +69,29 @@ public class ComputerPlayer {
     }
 
     private Move selectMoveByDifficulty(List<Move> possibleMoves) {
-        // Higher difficulty levels select better moves
+        // First, ensure moves are sorted by score in descending order
+        possibleMoves.sort(Comparator.comparing(Move::getScore).reversed());
+
         switch (difficultyLevel) {
-            case GameConstants.AI_EASY: // Easy - random move with preference for lower scores
-                return selectEasyMove(possibleMoves);
-            case GameConstants.AI_MEDIUM: // Medium - random from top half
-                return selectMediumMove(possibleMoves);
-            case GameConstants.AI_HARD: // Hard - random from top 3
-                return selectHardMove(possibleMoves);
+            case 1: // Easy - pick a random move, but bias toward easier ones
+                if (possibleMoves.size() > 2 && random.nextDouble() < 0.7) {
+                    // 70% chance to pick from bottom half for easy mode
+                    int startIdx = possibleMoves.size() / 2;
+                    return possibleMoves.get(startIdx + random.nextInt(possibleMoves.size() - startIdx));
+                } else {
+                    return possibleMoves.get(random.nextInt(possibleMoves.size()));
+                }
+
+            case 2: // Medium - pick from top 60% of moves
+                int mediumCutoff = Math.max(1, (int)(possibleMoves.size() * 0.6));
+                return possibleMoves.get(random.nextInt(mediumCutoff));
+
+            case 3: // Hard - pick from top 3 moves
+                int hardCutoff = Math.min(3, possibleMoves.size());
+                return possibleMoves.get(random.nextInt(hardCutoff));
+
             default:
-                return selectMediumMove(possibleMoves);
+                return possibleMoves.get(0); // Default to best move
         }
     }
 

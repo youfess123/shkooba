@@ -5,7 +5,7 @@ import java.util.*;
 import java.util.List;
 
 /**
- * GADDAG data structure for efficient word lookup in Scrabble.
+ * Enhanced GADDAG data structure for efficient word lookup and validation in Scrabble.
  *
  * A GADDAG is a specialized directed acyclic word graph that allows for
  * efficient finding of all valid words that can be placed through a specific
@@ -108,6 +108,208 @@ public class Gaddag {
     }
 
     /**
+     * Validates a word placement on the board.
+     *
+     * @param board The game board
+     * @param move The move to validate
+     * @return true if valid, false otherwise
+     */
+    public boolean validateWordPlacement(Board board, Move move) {
+        if (move.getTiles().isEmpty()) {
+            return false;
+        }
+
+        // Create a temporary board for validation
+        Board tempBoard = new Board();
+        for (int r = 0; r < Board.SIZE; r++) {
+            for (int c = 0; c < Board.SIZE; c++) {
+                Square square = board.getSquare(r, c);
+                if (square.hasTile()) {
+                    tempBoard.placeTile(r, c, square.getTile());
+                }
+            }
+        }
+
+        // Place tiles on temporary board
+        List<Point> newTilePositions = new ArrayList<>();
+        int row = move.getStartRow();
+        int col = move.getStartCol();
+        Move.Direction direction = move.getDirection();
+
+        int currentRow = row;
+        int currentCol = col;
+        for (Tile tile : move.getTiles()) {
+            // Skip over existing tiles
+            while (currentRow < Board.SIZE && currentCol < Board.SIZE &&
+                    tempBoard.getSquare(currentRow, currentCol).hasTile()) {
+                if (direction == Move.Direction.HORIZONTAL) {
+                    currentCol++;
+                } else {
+                    currentRow++;
+                }
+            }
+
+            if (currentRow >= Board.SIZE || currentCol >= Board.SIZE) {
+                return false; // Ran off the board
+            }
+
+            tempBoard.placeTile(currentRow, currentCol, tile);
+            newTilePositions.add(new Point(currentRow, currentCol));
+
+            if (direction == Move.Direction.HORIZONTAL) {
+                currentCol++;
+            } else {
+                currentRow++;
+            }
+        }
+
+        // First move must cover center square
+        if (board.isEmpty()) {
+            boolean touchesCenter = false;
+            for (Point p : newTilePositions) {
+                if (p.x == 7 && p.y == 7) { // Center is at (7,7)
+                    touchesCenter = true;
+                    break;
+                }
+            }
+            if (!touchesCenter) {
+                return false;
+            }
+        }
+
+        // Validate all formed words
+        List<String> formedWords = validateWords(tempBoard, move, newTilePositions);
+        return !formedWords.isEmpty();
+    }
+
+    /**
+     * Validates all words formed by a move.
+     *
+     * @param board The board with the move applied
+     * @param move The move being validated
+     * @param newTilePositions The positions of newly placed tiles
+     * @return List of formed words, empty if invalid
+     */
+    public List<String> validateWords(Board board, Move move, List<Point> newTilePositions) {
+        List<String> formedWords = new ArrayList<>();
+
+        // Find the main word
+        String mainWord = findMainWord(board, move);
+
+        if (mainWord.length() < 2 || !contains(mainWord)) {
+            return formedWords; // Empty list indicates invalid placement
+        }
+
+        formedWords.add(mainWord);
+
+        // Check all crossing words
+        for (Point p : newTilePositions) {
+            String crossWord = findCrossWord(board, move.getDirection(), p);
+
+            if (crossWord.length() >= 2) {
+                if (!contains(crossWord)) {
+                    return new ArrayList<>(); // Invalid crossing word
+                }
+                formedWords.add(crossWord);
+            }
+        }
+
+        return formedWords;
+    }
+
+    /**
+     * Finds the main word formed by a move.
+     *
+     * @param board The board
+     * @param move The move
+     * @return The main word string
+     */
+    private String findMainWord(Board board, Move move) {
+        int row = move.getStartRow();
+        int col = move.getStartCol();
+        Move.Direction direction = move.getDirection();
+
+        if (direction == Move.Direction.HORIZONTAL) {
+            int startCol = findWordStart(board, row, col, true);
+            return getWordAt(board, row, startCol, Move.Direction.HORIZONTAL);
+        } else {
+            int startRow = findWordStart(board, row, col, false);
+            return getWordAt(board, startRow, col, Move.Direction.VERTICAL);
+        }
+    }
+
+    /**
+     * Finds a crossing word at a position.
+     *
+     * @param board The board
+     * @param direction The direction of the main word
+     * @param position The position to check
+     * @return The crossing word string
+     */
+    private String findCrossWord(Board board, Move.Direction direction, Point position) {
+        if (direction == Move.Direction.HORIZONTAL) {
+            int startRow = findWordStart(board, position.x, position.y, false);
+            return getWordAt(board, startRow, position.y, Move.Direction.VERTICAL);
+        } else {
+            int startCol = findWordStart(board, position.x, position.y, true);
+            return getWordAt(board, position.x, startCol, Move.Direction.HORIZONTAL);
+        }
+    }
+
+    /**
+     * Finds the starting position of a word.
+     *
+     * @param board The board
+     * @param row The row
+     * @param col The column
+     * @param isHorizontal Whether searching horizontally
+     * @return The starting position
+     */
+    private int findWordStart(Board board, int row, int col, boolean isHorizontal) {
+        int position = isHorizontal ? col : row;
+        while (position > 0) {
+            int prevPos = position - 1;
+            Square square = isHorizontal ?
+                    board.getSquare(row, prevPos) :
+                    board.getSquare(prevPos, col);
+            if (!square.hasTile()) {
+                break;
+            }
+            position = prevPos;
+        }
+        return position;
+    }
+
+    /**
+     * Gets a word starting at a position.
+     *
+     * @param board The board
+     * @param row The starting row
+     * @param col The starting column
+     * @param direction The direction
+     * @return The word string
+     */
+    private String getWordAt(Board board, int row, int col, Move.Direction direction) {
+        StringBuilder word = new StringBuilder();
+        int currentRow = row;
+        int currentCol = col;
+
+        while (currentRow < Board.SIZE && currentCol < Board.SIZE) {
+            Square square = board.getSquare(currentRow, currentCol);
+            if (!square.hasTile()) {
+                break;
+            }
+            word.append(square.getTile().getLetter());
+            if (direction == Move.Direction.HORIZONTAL) {
+                currentCol++;
+            } else {
+                currentRow++;
+            }
+        }
+        return word.toString();
+    }
+
+    /**
      * Finds all valid words that can be formed using the given rack
      * with the given anchor letter at the anchor position.
      *
@@ -197,282 +399,6 @@ public class Gaddag {
                 }
             }
         }
-    }
-
-    /**
-     * Finds valid words that can be placed at a specific position on the board.
-     *
-     * @param board The game board
-     * @param row The row coordinate
-     * @param col The column coordinate
-     * @param rack The player's rack
-     * @param direction The direction to search (horizontal or vertical)
-     * @return A map of valid words to their starting positions
-     */
-    public Map<String, Point> findValidWordsAt(Board board, int row, int col, String rack, Move.Direction direction) {
-        Map<String, Point> validWords = new HashMap<>();
-
-        // Skip if position already has a tile
-        if (board.getSquare(row, col).hasTile()) {
-            return validWords;
-        }
-
-        // Get letters already on the board around this position
-        String[] partialWords = getPartialWordsAt(board, row, col, direction);
-        String prefix = partialWords[0];
-        String suffix = partialWords[1];
-
-        // Skip if isolated and not the first move
-        if (prefix.isEmpty() && suffix.isEmpty() && !board.isEmpty() &&
-                !hasAdjacentTiles(board, row, col)) {
-            return validWords;
-        }
-
-        // First move must go through center
-        if (board.isEmpty() && (row != 7 || col != 7)) {
-            return validWords;
-        }
-
-        // Try each letter in the rack
-        for (char letter : getUniqueLetters(rack)) {
-            String word = prefix + letter + suffix;
-
-            if (word.length() >= 2 && contains(word)) {
-                // Calculate the starting position of the word
-                int startRow = direction == Move.Direction.HORIZONTAL ? row : row - prefix.length();
-                int startCol = direction == Move.Direction.HORIZONTAL ? col - prefix.length() : col;
-
-                validWords.put(word, new java.awt.Point(startRow, startCol));
-            }
-        }
-
-        return validWords;
-    }
-
-    /**
-     * Gets the partial words (prefix and suffix) at a specific board position.
-     *
-     * @param board The game board
-     * @param row The row coordinate
-     * @param col The column coordinate
-     * @param direction The direction (horizontal or vertical)
-     * @return An array with [prefix, suffix]
-     */
-    private String[] getPartialWordsAt(Board board, int row, int col, Move.Direction direction) {
-        StringBuilder prefix = new StringBuilder();
-        StringBuilder suffix = new StringBuilder();
-
-        if (direction == Move.Direction.HORIZONTAL) {
-            // Get letters to the left
-            int c = col - 1;
-            while (c >= 0 && board.getSquare(row, c).hasTile()) {
-                prefix.insert(0, board.getSquare(row, c).getTile().getLetter());
-                c--;
-            }
-
-            // Get letters to the right
-            c = col + 1;
-            while (c < Board.SIZE && board.getSquare(row, c).hasTile()) {
-                suffix.append(board.getSquare(row, c).getTile().getLetter());
-                c++;
-            }
-        } else { // VERTICAL
-            // Get letters above
-            int r = row - 1;
-            while (r >= 0 && board.getSquare(r, col).hasTile()) {
-                prefix.insert(0, board.getSquare(r, col).getTile().getLetter());
-                r--;
-            }
-
-            // Get letters below
-            r = row + 1;
-            while (r < Board.SIZE && board.getSquare(r, col).hasTile()) {
-                suffix.append(board.getSquare(r, col).getTile().getLetter());
-                r++;
-            }
-        }
-
-        return new String[] {prefix.toString(), suffix.toString()};
-    }
-
-    /**
-     * Checks if a position has adjacent tiles.
-     *
-     * @param board The game board
-     * @param row The row coordinate
-     * @param col The column coordinate
-     * @return true if has adjacent tiles, false otherwise
-     */
-    private boolean hasAdjacentTiles(Board board, int row, int col) {
-        // Check all four adjacent positions
-        if (row > 0 && board.getSquare(row - 1, col).hasTile()) return true;
-        if (row < Board.SIZE - 1 && board.getSquare(row + 1, col).hasTile()) return true;
-        if (col > 0 && board.getSquare(row, col - 1).hasTile()) return true;
-        if (col < Board.SIZE - 1 && board.getSquare(row, col + 1).hasTile()) return true;
-
-        return false;
-    }
-
-    /**
-     * Gets the unique letters in a string.
-     *
-     * @param rack The string containing letters
-     * @return A set of unique letters
-     */
-    private Set<Character> getUniqueLetters(String rack) {
-        Set<Character> letters = new HashSet<>();
-        for (char c : rack.toCharArray()) {
-            letters.add(Character.toUpperCase(c));
-        }
-        return letters;
-    }
-
-    /**
-     * Finds the starting position of a word.
-     *
-     * @param board The game board
-     * @param row The row coordinate
-     * @param col The column coordinate
-     * @param isHorizontal Whether the word is horizontal
-     * @return The starting position of the word
-     */
-    private int findWordStart(Board board, int row, int col, boolean isHorizontal) {
-        int position = isHorizontal ? col : row;
-
-        while (position > 0) {
-            int prevPos = position - 1;
-            Square square = isHorizontal ? board.getSquare(row, prevPos) : board.getSquare(prevPos, col);
-
-            if (!square.hasTile()) {
-                break;
-            }
-            position = prevPos;
-        }
-
-        return position;
-    }
-
-    /**
-     * Validates a move by checking that all words formed are valid.
-     *
-     * @param board The game board
-     * @param move The move to validate
-     * @return A list of formed words, or empty if the move is invalid
-     */
-    public List<String> validateMove(Board board, Move move) {
-        List<String> formedWords = new ArrayList<>();
-
-        // Create a temporary board for validation
-        Board tempBoard = new Board();
-        for (int r = 0; r < Board.SIZE; r++) {
-            for (int c = 0; c < Board.SIZE; c++) {
-                Square square = board.getSquare(r, c);
-                if (square.hasTile()) {
-                    tempBoard.placeTile(r, c, square.getTile());
-                }
-            }
-        }
-
-        int row = move.getStartRow();
-        int col = move.getStartCol();
-        Move.Direction direction = move.getDirection();
-
-        // Place tiles on the temporary board
-        List<java.awt.Point> newTilePositions = new ArrayList<>();
-        int currentRow = row;
-        int currentCol = col;
-
-        for (Tile tile : move.getTiles()) {
-            // Skip existing tiles
-            while (currentRow < Board.SIZE && currentCol < Board.SIZE &&
-                    tempBoard.getSquare(currentRow, currentCol).hasTile()) {
-                if (direction == Move.Direction.HORIZONTAL) {
-                    currentCol++;
-                } else {
-                    currentRow++;
-                }
-            }
-
-            if (currentRow < Board.SIZE && currentCol < Board.SIZE) {
-                tempBoard.placeTile(currentRow, currentCol, tile);
-                newTilePositions.add(new java.awt.Point(currentRow, currentCol));
-
-                // Move to next position
-                if (direction == Move.Direction.HORIZONTAL) {
-                    currentCol++;
-                } else {
-                    currentRow++;
-                }
-            }
-        }
-
-        // Find and validate the main word
-        String mainWord;
-        if (direction == Move.Direction.HORIZONTAL) {
-            mainWord = getWordAt(tempBoard, row, findWordStart(tempBoard, row, col, true), true);
-        } else {
-            mainWord = getWordAt(tempBoard, findWordStart(tempBoard, row, col, false), col, false);
-        }
-
-        // Validate the main word
-        if (mainWord.length() < 2 || !contains(mainWord)) {
-            return formedWords; // Invalid main word
-        }
-
-        formedWords.add(mainWord);
-
-        // Check all crossing words
-        for (java.awt.Point p : newTilePositions) {
-            String crossWord;
-            if (direction == Move.Direction.HORIZONTAL) {
-                crossWord = getWordAt(tempBoard, findWordStart(tempBoard, p.x, p.y, false), p.y, false);
-            } else {
-                crossWord = getWordAt(tempBoard, p.x, findWordStart(tempBoard, p.x, p.y, true), true);
-            }
-
-            if (crossWord.length() >= 2) {
-                if (!contains(crossWord)) {
-                    return new ArrayList<>(); // Invalid crossing word
-                }
-                formedWords.add(crossWord);
-            }
-        }
-
-        return formedWords;
-    }
-
-    /**
-     * Gets a word at a specific position in a specific direction.
-     *
-     * @param board The game board
-     * @param row The starting row
-     * @param col The starting column
-     * @param isHorizontal Whether the word is horizontal
-     * @return The word string
-     */
-    private String getWordAt(Board board, int row, int col, boolean isHorizontal) {
-        StringBuilder word = new StringBuilder();
-
-        int currentRow = row;
-        int currentCol = col;
-
-        while (currentRow < Board.SIZE && currentCol < Board.SIZE) {
-            Square square = board.getSquare(currentRow, currentCol);
-
-            if (!square.hasTile()) {
-                break;
-            }
-
-            word.append(square.getTile().getLetter());
-
-            if (isHorizontal) {
-                currentCol++;
-            } else {
-                currentRow++;
-            }
-        }
-
-        return word.toString();
     }
 
     /**

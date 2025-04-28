@@ -52,7 +52,7 @@ public class GameController {
         // Initialize computer players
         for (Player player : game.getPlayers()) {
             if (player.isComputer()) {
-                computerPlayers.add(new ComputerPlayer(player, GameConstants.AI_MEDIUM));
+                computerPlayers.add(new ComputerPlayer(player, GameConstants.AI_HARD));
             }
         }
     }

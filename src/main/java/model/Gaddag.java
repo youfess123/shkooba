@@ -1,10 +1,5 @@
 package model;
 
-import model.Board;
-import model.Move;
-import model.Square;
-import model.Tile;
-
 import java.awt.*;
 import java.util.*;
 import java.util.List;

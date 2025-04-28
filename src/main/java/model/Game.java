@@ -127,7 +127,7 @@ public class Game {
             return false;
         }
 
-        boolean success = false;
+        var success = false;
 
         try {
             switch (move.getType()) {

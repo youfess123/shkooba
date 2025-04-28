@@ -2,9 +2,7 @@ package model;
 
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class Move {
     public enum Type {
@@ -26,7 +24,6 @@ public class Move {
     private final List<Tile> tiles;
     private int score;
     private List<String> formedWords;
-    private final Map<String, Object> metadata;
 
     private Move(Player player, Type type) {
         this.player = player;
@@ -34,7 +31,6 @@ public class Move {
         this.tiles = new ArrayList<>();
         this.formedWords = new ArrayList<>();
         this.score = 0;
-        this.metadata = new HashMap<>();
     }
 
     public static Move createPlaceMove(Player player, int startRow, int startCol, Direction direction) {
@@ -97,14 +93,6 @@ public class Move {
 
     public List<String> getFormedWords() {
         return new ArrayList<>(formedWords);
-    }
-
-    public void setMetadata(String key, Object value) {
-        metadata.put(key, value);
-    }
-
-    public Object getMetadata(String key) {
-        return metadata.get(key);
     }
 
     @Override

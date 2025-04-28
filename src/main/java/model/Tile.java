@@ -2,7 +2,7 @@ package model;
 
 public class Tile {
     private final char letter;
-    private final int value;
+    private  int value;
     private final boolean isBlank;
 
     public Tile(char letter, int value) {
@@ -23,6 +23,11 @@ public class Tile {
     public int getValue() {
         return value;
     }
+
+    public void setValue(int value) {
+        this.value = value;
+    }
+
 
     public char getLetter() {
         return letter;

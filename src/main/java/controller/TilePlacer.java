@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+import static model.TileBag.getPointValue;
+
 public class TilePlacer {
     private static final Logger logger = Logger.getLogger(TilePlacer.class.getName());
 
@@ -62,6 +64,8 @@ public class TilePlacer {
         rack.removeTile(currentTile);
         Tile blankTile = Tile.createBlankTile(letter);
         rack.addTile(blankTile);
+        int letterValue = getPointValue(letter);
+        blankTile.setValue(letterValue);
 
         logger.fine("Set blank tile letter to " + letter + " at index " + rackIndex);
 
@@ -80,7 +84,5 @@ public class TilePlacer {
         return new ArrayList<>(selectedTiles);
     }
 
-    public List<Integer> getSelectedPositions() {
-        return new ArrayList<>(selectedPositions);
-    }
+
 }

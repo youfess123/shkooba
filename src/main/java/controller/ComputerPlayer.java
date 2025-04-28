@@ -35,7 +35,7 @@ public class ComputerPlayer {
         try {
             logger.info("Computer player generating move at difficulty " + difficultyLevel);
 
-            if (player.getRack().size() == 0) {
+            if (player.getRack().isEmpty()) {
                 logger.info("Computer has no tiles, passing");
                 return Move.createPassMove(player);
             }
@@ -91,34 +91,11 @@ public class ComputerPlayer {
                 return possibleMoves.get(random.nextInt(hardCutoff));
 
             default:
-                return possibleMoves.get(0); // Default to best move
+                return possibleMoves.getFirst(); // Default to best move
         }
     }
 
-    private Move selectEasyMove(List<Move> possibleMoves) {
-        // Easy AI chooses randomly but prefers lower scoring moves
-        int size = possibleMoves.size();
-        int index = random.nextInt(size);
 
-        // 70% chance to pick from the bottom half if available
-        if (size > 1 && random.nextDouble() < 0.7) {
-            index = size / 2 + random.nextInt(size - size / 2);
-        }
-
-        return possibleMoves.get(Math.min(index, size - 1));
-    }
-
-    private Move selectMediumMove(List<Move> possibleMoves) {
-        // Medium AI chooses randomly from the top half
-        int mediumCutoff = Math.max(1, possibleMoves.size() / 2);
-        return possibleMoves.get(random.nextInt(mediumCutoff));
-    }
-
-    private Move selectHardMove(List<Move> possibleMoves) {
-        // Hard AI chooses randomly from the top 3 (or fewer if not enough moves)
-        int hardCutoff = Math.min(3, possibleMoves.size());
-        return possibleMoves.get(random.nextInt(hardCutoff));
-    }
 
     private Move generateFallbackMove(Game game) {
         try {
@@ -208,12 +185,12 @@ public class ComputerPlayer {
     }
 
     private int determineExchangeCount() {
-        switch (difficultyLevel) {
-            case GameConstants.AI_EASY: return 4; // Easy - exchange more tiles
-            case GameConstants.AI_MEDIUM: return 3; // Medium
-            case GameConstants.AI_HARD: return 2; // Hard - exchange fewer tiles
-            default: return 3;
-        }
+        return switch (difficultyLevel) {
+            case GameConstants.AI_EASY -> 4; // Easy - exchange more tiles
+            case GameConstants.AI_MEDIUM -> 3; // Medium
+            case GameConstants.AI_HARD -> 2; // Hard - exchange fewer tiles
+            default -> 3;
+        };
     }
 
     private Map<Character, Integer> countLetters(List<Tile> tiles) {
@@ -228,8 +205,6 @@ public class ComputerPlayer {
     private List<Move> findPossibleMoves(Game game) {
         List<Move> possibleMoves = new ArrayList<>();
         Board board = game.getBoard();
-        Dictionary dictionary = game.getDictionary();
-        Rack rack = player.getRack();
 
         // Special case for empty board
         if (board.isEmpty()) {

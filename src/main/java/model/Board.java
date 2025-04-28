@@ -50,9 +50,7 @@ public class Board {
         // Double word score (pink)
         if (row == col || row + col == 14) {
             if (row > 0 && row < 14 && col > 0 && col < 14) {
-                if (row != 7 || col != 7) {
-                    return Square.SquareType.DOUBLE_WORD;
-                }
+                return Square.SquareType.DOUBLE_WORD;
             }
         }
 
@@ -167,13 +165,6 @@ public class Board {
         return word.size() >= 2 ? word : new ArrayList<>();
     }
 
-    public static String getWordString(List<Square> squares) {
-        StringBuilder word = new StringBuilder();
-        for (Square square : squares) {
-            word.append(square.getTile().getLetter());
-        }
-        return word.toString();
-    }
 
     public boolean isEmpty() {
         for (int row = 0; row < SIZE; row++) {

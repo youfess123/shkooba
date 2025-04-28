@@ -97,7 +97,7 @@ public class MoveHandler {
 
         // For the first temporary tile, any adjacent square is valid
         if (placementPoints.size() == 1) {
-            Point existingPoint = placementPoints.get(0);
+            Point existingPoint = placementPoints.getFirst();
             return (row == existingPoint.x || col == existingPoint.y);
         }
 
@@ -176,9 +176,9 @@ public class MoveHandler {
         // Check if all placements are in the same row or column
         List<Point> points = new ArrayList<>(temporaryPlacements.keySet());
         boolean sameRow = true;
-        int firstRow = points.get(0).x;
+        int firstRow = points.getFirst().x;
         boolean sameColumn = true;
-        int firstCol = points.get(0).y;
+        int firstCol = points.getFirst().y;
 
         for (Point p : points) {
             if (p.x != firstRow) {
@@ -211,7 +211,7 @@ public class MoveHandler {
         boolean hasVerticalAdjacent = (row > 0 && board.getSquare(row - 1, col).hasTile()) ||
                 (row < Board.SIZE - 1 && board.getSquare(row + 1, col).hasTile());
 
-        // If only one direction has adjacents, use that
+        // If only one direction has adjacent, use that
         if (hasHorizontalAdjacent && !hasVerticalAdjacent) {
             return Move.Direction.HORIZONTAL;
         }
@@ -346,7 +346,4 @@ public class MoveHandler {
         return new HashMap<>(temporaryPlacements);
     }
 
-    public List<Integer> getTemporaryIndices() {
-        return new ArrayList<>(temporaryIndices);
-    }
 }

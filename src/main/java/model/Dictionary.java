@@ -14,24 +14,7 @@ public class Dictionary {
     private final Gaddag gaddag;
     private final Set<String> wordSet;
     private final String dictionaryName;
-    private final Map<String, Integer> wordScoreCache;
 
-    private static final String DEFAULT_DICTIONARY = "/dictionaries/Dictionary.txt";
-
-    /**
-     * Creates a dictionary from a file.
-     *
-     * @param filePath Path to the dictionary file
-     * @throws IOException If the file cannot be read
-     */
-    public Dictionary(String filePath) throws IOException {
-        this.gaddag = new Gaddag();
-        this.wordSet = new HashSet<>();
-        this.wordScoreCache = new HashMap<>();
-        this.dictionaryName = extractDictionaryName(filePath);
-        loadFromFile(filePath);
-        System.out.println("Loaded dictionary '" + dictionaryName + "' with " + wordSet.size() + " words");
-    }
 
     /**
      * Creates a dictionary from an input stream.
@@ -43,7 +26,6 @@ public class Dictionary {
     public Dictionary(InputStream inputStream, String name) throws IOException {
         this.gaddag = new Gaddag();
         this.wordSet = new HashSet<>();
-        this.wordScoreCache = new HashMap<>();
         this.dictionaryName = name;
         loadFromInputStream(inputStream);
         System.out.println("Loaded dictionary '" + dictionaryName + "' with " + wordSet.size() + " words");
@@ -82,34 +64,7 @@ public class Dictionary {
         return is;
     }
 
-    /**
-     * Extracts the dictionary name from a file path.
-     *
-     * @param filePath The file path
-     * @return The dictionary name
-     */
-    private String extractDictionaryName(String filePath) {
-        String filename = filePath.substring(filePath.lastIndexOf('/') + 1);
-        if (filename.contains(".")) {
-            filename = filename.substring(0, filename.lastIndexOf('.'));
-        }
-        return filename;
-    }
 
-    /**
-     * Loads words from a file.
-     *
-     * @param filePath The file path
-     * @throws IOException If the file cannot be read
-     */
-    private void loadFromFile(String filePath) throws IOException {
-        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                addWord(line);
-            }
-        }
-    }
 
     /**
      * Loads words from an input stream.
@@ -172,32 +127,4 @@ public class Dictionary {
         return gaddag;
     }
 
-    /**
-     * Caches a word score for future reference.
-     *
-     * @param word The word
-     * @param score The score
-     */
-    public void cacheWordScore(String word, int score) {
-        wordScoreCache.put(word.toUpperCase(), score);
-    }
-
-    /**
-     * Gets a cached word score.
-     *
-     * @param word The word
-     * @return The score, or null if not cached
-     */
-    public Integer getCachedWordScore(String word) {
-        return wordScoreCache.get(word.toUpperCase());
-    }
-
-    /**
-     * Gets the number of words in the dictionary.
-     *
-     * @return The word count
-     */
-    public int getWordCount() {
-        return wordSet.size();
-    }
 }

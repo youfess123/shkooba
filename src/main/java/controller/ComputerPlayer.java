@@ -17,7 +17,7 @@ public class ComputerPlayer {
     private final Player player;
     private final Random random;
     private final int difficultyLevel;
-    private WordFinder wordFinder;
+    // Remove the wordFinder as a field - we'll create a new one each time
 
     public ComputerPlayer(Player player, int difficultyLevel) {
         this.player = player;
@@ -30,23 +30,6 @@ public class ComputerPlayer {
         return player;
     }
 
-    /**
-     * Initializes the WordFinder if needed.
-     *
-     * @param game The current game
-     */
-    private void ensureWordFinderInitialized(Game game) {
-        if (wordFinder == null) {
-            wordFinder = new WordFinder(game.getDictionary(), game.getBoard());
-        }
-    }
-
-    /**
-     * Generates a move for the computer player using GADDAG-based word finding.
-     *
-     * @param game The current game
-     * @return The generated move
-     */
     public Move generateMove(Game game) {
         try {
             logger.info("Computer player generating move at difficulty " + difficultyLevel);
@@ -56,10 +39,15 @@ public class ComputerPlayer {
                 return Move.createPassMove(player);
             }
 
-            // Ensure WordFinder is initialized
-            ensureWordFinderInitialized(game);
+            // CRITICAL FIX: Create a fresh WordFinder with the current board state every time
+            WordFinder wordFinder = new WordFinder(game.getDictionary(), game.getBoard());
 
-            // Use WordFinder to get all possible placements
+            // If first move, try simpler approach to guarantee a valid move
+            if (game.getBoard().isEmpty()) {
+                return findFirstMove(game);
+            }
+
+            // For all other moves, use WordFinder
             List<WordPlacement> possiblePlacements = wordFinder.findAllPlacements(player.getRack());
 
             // Convert to moves
@@ -71,8 +59,16 @@ public class ComputerPlayer {
             logger.info("Found " + possibleMoves.size() + " possible moves");
 
             if (possibleMoves.isEmpty()) {
-                logger.info("No possible word placements found, using fallback");
-                return generateFallbackMove(game);
+                // Try a backup strategy - direct word formation
+                List<Move> backupMoves = findBackupMoves(game);
+
+                if (!backupMoves.isEmpty()) {
+                    logger.info("Found " + backupMoves.size() + " backup moves");
+                    possibleMoves = backupMoves;
+                } else {
+                    logger.info("No possible word placements found, using fallback");
+                    return generateFallbackMove(game);
+                }
             }
 
             // Sort moves by score in descending order
@@ -95,6 +91,124 @@ public class ComputerPlayer {
         }
     }
 
+    // Simple guaranteed first move
+    private Move findFirstMove(Game game) {
+        Dictionary dictionary = game.getDictionary();
+        Rack rack = player.getRack();
+
+        // Just try all 2-letter words through center
+        for (int i = 0; i < rack.size(); i++) {
+            for (int j = 0; j < rack.size(); j++) {
+                if (i != j) {
+                    Tile t1 = rack.getTile(i);
+                    Tile t2 = rack.getTile(j);
+                    String word = "" + t1.getLetter() + t2.getLetter();
+
+                    if (dictionary.isValidWord(word)) {
+                        Move move = Move.createPlaceMove(player, 7, 7, Move.Direction.HORIZONTAL);
+                        List<Tile> tiles = new ArrayList<>();
+                        tiles.add(t1);
+                        tiles.add(t2);
+                        move.addTiles(tiles);
+
+                        List<String> words = new ArrayList<>();
+                        words.add(word);
+                        move.setFormedWords(words);
+                        move.setScore(t1.getValue() + t2.getValue());
+
+                        return move;
+                    }
+                }
+            }
+        }
+
+        // If no valid word, just place a single letter
+        Move move = Move.createPlaceMove(player, 7, 7, Move.Direction.HORIZONTAL);
+        move.addTiles(Collections.singletonList(rack.getTile(0)));
+        return move;
+    }
+
+    // Backup strategy for finding moves
+    private List<Move> findBackupMoves(Game game) {
+        List<Move> moves = new ArrayList<>();
+
+        // Simple implementation: try to add one letter to existing words
+        Board board = game.getBoard();
+        Dictionary dictionary = game.getDictionary();
+        Rack rack = player.getRack();
+
+        // Find all occupied squares
+        for (int row = 0; row < Board.SIZE; row++) {
+            for (int col = 0; col < Board.SIZE; col++) {
+                Square square = board.getSquare(row, col);
+                if (square.hasTile()) {
+                    // Check all four adjacent positions
+                    tryPositionForBackupMove(moves, board, dictionary, rack, row-1, col, Move.Direction.VERTICAL);
+                    tryPositionForBackupMove(moves, board, dictionary, rack, row+1, col, Move.Direction.VERTICAL);
+                    tryPositionForBackupMove(moves, board, dictionary, rack, row, col-1, Move.Direction.HORIZONTAL);
+                    tryPositionForBackupMove(moves, board, dictionary, rack, row, col+1, Move.Direction.HORIZONTAL);
+                }
+            }
+        }
+
+        return moves;
+    }
+
+    private void tryPositionForBackupMove(List<Move> moves, Board board, Dictionary dictionary,
+                                          Rack rack, int row, int col, Move.Direction direction) {
+        // Skip invalid positions
+        if (row < 0 || row >= Board.SIZE || col < 0 || col >= Board.SIZE) {
+            return;
+        }
+
+        // Skip occupied squares
+        if (board.getSquare(row, col).hasTile()) {
+            return;
+        }
+
+        // Try each tile in the rack
+        for (int i = 0; i < rack.size(); i++) {
+            Tile tile = rack.getTile(i);
+
+            // Create a temporary move
+            int startRow = direction == Move.Direction.HORIZONTAL ? row : row;
+            int startCol = direction == Move.Direction.HORIZONTAL ? col : col;
+
+            Move move = Move.createPlaceMove(player, startRow, startCol, direction);
+            move.addTiles(Collections.singletonList(tile));
+
+            // Create a temporary board with the move applied
+            Board tempBoard = new Board();
+            for (int r = 0; r < Board.SIZE; r++) {
+                for (int c = 0; c < Board.SIZE; c++) {
+                    Square square = board.getSquare(r, c);
+                    if (square.hasTile()) {
+                        tempBoard.placeTile(r, c, square.getTile());
+                    }
+                }
+            }
+            tempBoard.placeTile(row, col, tile);
+
+            // Check if it forms valid words
+            List<Point> newTilePositions = new ArrayList<>();
+            newTilePositions.add(new Point(row, col));
+            List<String> formedWords = utilities.WordValidator.validateWords(tempBoard, move, newTilePositions, dictionary);
+
+            if (!formedWords.isEmpty()) {
+                // Calculate score
+                Set<Point> newPosSet = new HashSet<>(newTilePositions);
+                int score = utilities.ScoreCalculator.calculateMoveScore(move, tempBoard, formedWords, newPosSet);
+
+                move.setFormedWords(formedWords);
+                move.setScore(score);
+
+                // Add to possible moves
+                moves.add(move);
+            }
+        }
+    }
+
+    // Rest of the methods remain the same...
     private Move selectMoveByDifficulty(List<Move> possibleMoves) {
         // First, ensure moves are sorted by score in descending order
         possibleMoves.sort(Comparator.comparing(Move::getScore).reversed());
@@ -145,6 +259,7 @@ public class ComputerPlayer {
     }
 
     private List<Tile> selectOptimalTilesToExchange() {
+        // Existing implementation
         Rack rack = player.getRack();
         List<Tile> availableTiles = new ArrayList<>(rack.getTiles());
         List<Tile> tilesToExchange = new ArrayList<>();
@@ -168,6 +283,7 @@ public class ComputerPlayer {
         return tilesToExchange;
     }
 
+    // Rest of the class remains the same...
     private Map<Tile, Double> scoreTilesForExchange(List<Tile> availableTiles) {
         Map<Tile, Double> tileScores = new HashMap<>();
         Map<Character, Integer> letterCounts = countLetters(availableTiles);
@@ -227,8 +343,6 @@ public class ComputerPlayer {
         return counts;
     }
 
-    // Utility methods
-
     private boolean isVowel(char letter) {
         letter = Character.toUpperCase(letter);
         return letter == 'A' || letter == 'E' || letter == 'I' || letter == 'O' || letter == 'U';
@@ -242,13 +356,5 @@ public class ComputerPlayer {
             }
         }
         return count;
-    }
-
-    private String getTilesAsString(List<Tile> tiles) {
-        StringBuilder sb = new StringBuilder();
-        for (Tile tile : tiles) {
-            sb.append(tile.getLetter());
-        }
-        return sb.toString();
     }
 }

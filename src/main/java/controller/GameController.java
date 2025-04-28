@@ -52,10 +52,12 @@ public class GameController {
         // Initialize computer players
         for (Player player : game.getPlayers()) {
             if (player.isComputer()) {
-                computerPlayers.add(new ComputerPlayer(player, GameConstants.AI_HARD));
+                computerPlayers.add(new ComputerPlayer(player, GameConstants.AI_EASY));
             }
         }
     }
+
+
 
     public void startGame() {
         game.start();
@@ -205,6 +207,7 @@ public class GameController {
             executeComputerMove(computerPlayer, currentPlayer, emergencyTimer);
         }
     }
+
 
     private ComputerPlayer getComputerPlayerFor(Player player) {
         for (ComputerPlayer cp : computerPlayers) {

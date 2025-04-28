@@ -26,6 +26,18 @@ public class Dictionary {
         this.gaddag = new Gaddag();
         this.wordSet = new HashSet<>();
         this.dictionaryName = name;
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim().toUpperCase();
+                if (!line.isEmpty()) {
+                    wordSet.add(line);
+                    gaddag.insert(line);
+                }
+            }
+        }
+
         System.out.println("Loaded dictionary '" + dictionaryName + "' with " + wordSet.size() + " words");
     }
 

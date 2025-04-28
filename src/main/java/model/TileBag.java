@@ -209,15 +209,4 @@ public class TileBag {
         return tiles.isEmpty();
     }
 
-    /**
-     * Gets the point value for a specific letter according to Scrabble rules.
-     *
-     * @param letter The letter to look up
-     * @return The point value of the letter
-     */
-    public static int getPointValue(char letter) {
-        letter = Character.toUpperCase(letter);
-        LetterInfo info = LETTER_DATA.get(letter);
-        return info != null ? info.getValue() : 0;
-    }
 }

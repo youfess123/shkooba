@@ -22,6 +22,8 @@ public class MoveHandler {
         this.temporaryIndices = new ArrayList<>();
     }
 
+    // In MoveHandler.java
+
     public boolean placeTileTemporarily(int rackIndex, int row, int col) {
         try {
             // Basic validation

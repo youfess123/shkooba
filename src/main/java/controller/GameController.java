@@ -3,7 +3,10 @@ package controller;
 
 import javafx.application.Platform;
 import model.*;
+import service.DictionaryService;
 import utilities.GameConstants;
+import view.WordDefinitionDialog;
+
 
 import java.awt.Point;
 import java.util.*;
@@ -18,6 +21,10 @@ public class GameController {
     private final TilePlacer tilePlacer;
     private final List<ComputerPlayer> computerPlayers;
     private final ExecutorService executor;
+
+    private DictionaryService dictionaryService;
+    private WordDefinitionDialog definitionDialog;
+    private boolean showDefinitionsEnabled = true;
 
     private boolean gameInProgress;
     private volatile boolean computerMoveInProgress;
@@ -37,6 +44,10 @@ public class GameController {
         this.executor = Executors.newSingleThreadExecutor();
         this.gameInProgress = false;
         this.computerMoveInProgress = false;
+
+        // Initialize the dictionary service
+        this.dictionaryService = new DictionaryService();
+        this.definitionDialog = new WordDefinitionDialog(dictionaryService);
 
         // Initialize computer players
         for (Player player : game.getPlayers()) {
@@ -72,6 +83,11 @@ public class GameController {
             updateRack();
             updateCurrentPlayer();
 
+            // Show word definitions if it's a PLACE move and not a computer player
+            if (move.getType() == Move.Type.PLACE && !move.getPlayer().isComputer() && showDefinitionsEnabled) {
+                showDefinitionsForMove(move);
+            }
+
             // Check game over
             if (game.isGameOver()) {
                 gameInProgress = false;
@@ -86,6 +102,46 @@ public class GameController {
         }
 
         return success;
+    }
+
+    private void showDefinitionsForMove(Move move) {
+        List<String> words = move.getFormedWords();
+        if (words != null && !words.isEmpty()) {
+            // If only one word was formed, show its definition directly
+            if (words.size() == 1) {
+                definitionDialog.showDefinition(words.get(0));
+            } else {
+                // If multiple words were formed, show a list to choose from
+                definitionDialog.showDefinitions(words);
+            }
+        }
+    }
+
+    public void showDefinitionForWord(String word) {
+        if (showDefinitionsEnabled) {
+            definitionDialog.showDefinition(word);
+        }
+    }
+
+    public void showWordHistory() {
+        List<String> playedWords = new ArrayList<>();
+
+        // Collect all words from move history
+        for (Move move : game.getMoveHistory()) {
+            if (move.getType() == Move.Type.PLACE) {
+                playedWords.addAll(move.getFormedWords());
+            }
+        }
+
+        // Remove duplicates
+        List<String> uniqueWords = new ArrayList<>(new HashSet<>(playedWords));
+
+        // Sort alphabetically
+        Collections.sort(uniqueWords);
+
+        if (!uniqueWords.isEmpty()) {
+            definitionDialog.showDefinitions(uniqueWords);
+        }
     }
 
 // Update commitPlacement, exchangeTiles, and passTurn methods to also trigger AI moves
@@ -360,9 +416,33 @@ public class GameController {
         this.gameOverListener = listener;
     }
 
-    // Resource cleanup
 
+
+    /**
+     * Enables or disables the automatic display of word definitions.
+     *
+     * @param enabled Whether to show definitions automatically after moves
+     */
+    public void setShowDefinitionsEnabled(boolean enabled) {
+        this.showDefinitionsEnabled = enabled;
+    }
+
+    /**
+     * Checks if word definitions are enabled.
+     *
+     * @return Whether word definitions are enabled
+     */
+    public boolean isShowDefinitionsEnabled() {
+        return showDefinitionsEnabled;
+    }
+
+
+    // Modify the shutdown method to close the definition dialog
     public void shutdown() {
+        if (definitionDialog != null) {
+            definitionDialog.close();
+        }
+
         executor.shutdown();
         try {
             if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {

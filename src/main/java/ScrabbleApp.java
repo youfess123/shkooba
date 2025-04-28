@@ -57,11 +57,9 @@ public class ScrabbleApp extends Application {
         InputStream dictionaryStream = Dictionary.loadDefaultDictionary();
         game = new Game(dictionaryStream, "Dictionary");
 //        game.addPlayer(new Player("Player 1",false));
-        Player player1 = new Player("Player 1", false); // Use the constructor that specifies computer or not
-        game.addPlayer(player1);
+        game.addPlayer(new Player("Player 1", false));
         game.addPlayer(new Player("Computer", true));
         logger.info("Game initialized with 2 players");
-        player1.getRack().addTile(new Tile('*',0));
     }
 
     private void showErrorAndExit(String message) {

@@ -11,7 +11,10 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import model.Player;
 
-
+/**
+ * Main view class for the Scrabble game UI.
+ * Organizes the board, rack, info panel, and control buttons.
+ */
 public class GameView extends BorderPane {
     private final GameController controller;
     private final BoardView boardView;
@@ -19,6 +22,11 @@ public class GameView extends BorderPane {
     private final GameInfoView gameInfoView;
     private final ControlPanel controlPanel;
 
+    /**
+     * Creates a new game view with the specified controller.
+     *
+     * @param controller The game controller
+     */
     public GameView(GameController controller) {
         this.controller = controller;
         this.boardView = new BoardView(controller);
@@ -34,6 +42,11 @@ public class GameView extends BorderPane {
         setupListeners();
     }
 
+    /**
+     * Creates the bottom pane containing rack and control panel.
+     *
+     * @return The bottom pane
+     */
     private VBox createBottomPane() {
         VBox bottomPane = new VBox(10);
         bottomPane.setPadding(new Insets(10, 0, 0, 0));
@@ -41,6 +54,9 @@ public class GameView extends BorderPane {
         return bottomPane;
     }
 
+    /**
+     * Sets up listeners for game events.
+     */
     private void setupListeners() {
         controller.setBoardUpdateListener(() -> boardView.updateBoard());
         controller.setRackUpdateListener(() -> rackView.updateRack());
@@ -55,7 +71,9 @@ public class GameView extends BorderPane {
         controller.setTemporaryPlacementListener(() -> controlPanel.updateButtonStates());
     }
 
-
+    /**
+     * Shows the game over dialog with final scores.
+     */
     private void showGameOverDialog() {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Game Over");
@@ -80,17 +98,29 @@ public class GameView extends BorderPane {
         alert.showAndWait();
     }
 
-    private class ControlPanel extends HBox {
+    /**
+     * Control panel with buttons for game actions.
+     */
+    private class ControlPanel extends VBox {
         private final Button playButton;
         private final Button cancelButton;
         private final Button exchangeButton;
         private final Button passButton;
+        private final Button wordHistoryButton;
+        private final Button toggleDefinitionsButton;
+        private boolean definitionsEnabled = true;
 
+        /**
+         * Creates a new control panel with the specified controller.
+         *
+         * @param controller The game controller
+         */
         public ControlPanel(GameController controller) {
             setSpacing(10);
             setPadding(new Insets(10));
             setStyle("-fx-background-color: #e0e0e0; -fx-border-color: #cccccc; -fx-border-radius: 5;");
 
+            // Create main game action buttons
             playButton = new Button("Play Word");
             playButton.setOnAction(e -> {
                 boolean success = controller.commitPlacement();
@@ -141,12 +171,35 @@ public class GameView extends BorderPane {
                 }
             });
 
-            getChildren().addAll(playButton, cancelButton, exchangeButton, passButton);
-            for (var node : getChildren()) {
+            // Add new buttons for word definitions feature
+            wordHistoryButton = new Button("Word History");
+            wordHistoryButton.setOnAction(e -> controller.showWordHistory());
+            wordHistoryButton.setTooltip(new Tooltip("View definitions of previously played words"));
+
+            toggleDefinitionsButton = new Button("Definitions: ON");
+            toggleDefinitionsButton.setOnAction(e -> toggleDefinitionsFeature(controller));
+            toggleDefinitionsButton.setTooltip(new Tooltip("Toggle automatic word definitions after moves"));
+
+            // Create an HBox for the main game control buttons
+            HBox gameControlsBox = new HBox(10);
+            gameControlsBox.getChildren().addAll(playButton, cancelButton, exchangeButton, passButton);
+            for (var node : gameControlsBox.getChildren()) {
                 HBox.setHgrow(node, Priority.ALWAYS);
                 ((Button) node).setMaxWidth(Double.MAX_VALUE);
             }
 
+            // Create an HBox for the educational feature buttons
+            HBox educationalControlsBox = new HBox(10);
+            educationalControlsBox.getChildren().addAll(wordHistoryButton, toggleDefinitionsButton);
+            for (var node : educationalControlsBox.getChildren()) {
+                HBox.setHgrow(node, Priority.ALWAYS);
+                ((Button) node).setMaxWidth(Double.MAX_VALUE);
+            }
+
+            // Add button rows to the control panel
+            getChildren().addAll(gameControlsBox, educationalControlsBox);
+
+            // Set tooltips
             playButton.setTooltip(new Tooltip("Confirm and play the word"));
             cancelButton.setTooltip(new Tooltip("Cancel tile placement"));
             exchangeButton.setTooltip(new Tooltip("Exchange selected tiles for new ones"));
@@ -155,6 +208,27 @@ public class GameView extends BorderPane {
             updateButtonStates();
         }
 
+        /**
+         * Toggles the word definitions feature on/off.
+         *
+         * @param controller The game controller
+         */
+        private void toggleDefinitionsFeature(GameController controller) {
+            definitionsEnabled = !definitionsEnabled;
+            controller.setShowDefinitionsEnabled(definitionsEnabled);
+
+            if (definitionsEnabled) {
+                toggleDefinitionsButton.setText("Definitions: ON");
+                showInfo("Word definitions will be shown after each move.");
+            } else {
+                toggleDefinitionsButton.setText("Definitions: OFF");
+                showInfo("Word definitions will not be shown automatically.");
+            }
+        }
+
+        /**
+         * Updates the enabled/disabled state of buttons based on the current game state.
+         */
         public void updateButtonStates() {
             Player currentPlayer = controller.getCurrentPlayer();
             boolean isPlayerTurn = !currentPlayer.isComputer();
@@ -165,9 +239,17 @@ public class GameView extends BorderPane {
             cancelButton.setDisable(!isPlayerTurn || !hasTemporaryPlacements);
             exchangeButton.setDisable(!isPlayerTurn || hasTemporaryPlacements || !hasSelectedTiles);
             passButton.setDisable(!isPlayerTurn || hasTemporaryPlacements);
+
+            // Word history button is always enabled as long as there are moves
+            wordHistoryButton.setDisable(controller.getMoveHistory().isEmpty());
         }
     }
 
+    /**
+     * Shows an information dialog.
+     *
+     * @param message The message to display
+     */
     private void showInfo(String message) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Information");
@@ -176,6 +258,11 @@ public class GameView extends BorderPane {
         alert.showAndWait();
     }
 
+    /**
+     * Shows an error dialog.
+     *
+     * @param message The error message to display
+     */
     private void showError(String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle("Error");

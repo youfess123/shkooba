@@ -16,6 +16,7 @@ import model.Move;
 import model.Square;
 import model.Tile;
 import utilities.GameConstants;
+import utilities.WordFinder;
 
 import java.awt.Point;
 import java.util.logging.Logger;
@@ -41,6 +42,7 @@ public class BoardView extends GridPane {
 
         initializeLayout();
         initializeSquares();
+        setupHintClickEvents();
 
         logger.fine("Board view initialized");
     }
@@ -89,6 +91,122 @@ public class BoardView extends GridPane {
                 squareViews[row][col].update();
             }
         }
+
+        // Show hints if active
+        if (controller.areHintsActive()) {
+            showHints();
+        }
+    }
+
+    /**
+     * Displays hint highlights on the board.
+     */
+    private void showHints() {
+        // Clear any previous hint styling
+        clearHintStyling();
+
+        // Get current hints
+        java.util.List<WordFinder.WordPlacement> hints = controller.getCurrentHints();
+
+        // Apply styling for each hint
+        for (int i = 0; i < hints.size(); i++) {
+            WordFinder.WordPlacement hint = hints.get(i);
+            highlightHint(hint, i);
+        }
+    }
+
+    /**
+     * Clears hint styling from all squares.
+     */
+    private void clearHintStyling() {
+        for (int row = 0; row < Board.SIZE; row++) {
+            for (int col = 0; col < Board.SIZE; col++) {
+                squareViews[row][col].setHintStyle(false, 0);
+            }
+        }
+    }
+
+    /**
+     * Highlights a specific hint word on the board.
+     *
+     * @param hint The word placement to highlight
+     * @param hintIndex The index of the hint (used for coloring)
+     */
+    private void highlightHint(WordFinder.WordPlacement hint, int hintIndex) {
+        int row = hint.getRow();
+        int col = hint.getCol();
+        String word = hint.getWord();
+        Move.Direction direction = hint.getDirection();
+
+        // Use a different color for each hint (rotate through 5 colors)
+        int colorIndex = hintIndex % 5;
+
+        for (int i = 0; i < word.length(); i++) {
+            int currentRow = row + (direction == Move.Direction.VERTICAL ? i : 0);
+            int currentCol = col + (direction == Move.Direction.HORIZONTAL ? i : 0);
+
+            // Skip squares that already have tiles
+            if (controller.getBoard().getSquare(currentRow, currentCol).hasTile()) {
+                continue;
+            }
+
+            // Highlight empty squares where hint tiles would go
+            if (currentRow >= 0 && currentRow < Board.SIZE &&
+                    currentCol >= 0 && currentCol < Board.SIZE) {
+                squareViews[currentRow][currentCol].setHintStyle(true, colorIndex);
+
+                // Show hint letters
+                squareViews[currentRow][currentCol].showHintLetter(word.charAt(i));
+            }
+        }
+    }
+
+    /**
+     * Sets up click handling for hints.
+     */
+    private void setupHintClickEvents() {
+        // We'll add a mouse click handler to the entire board
+        setOnMouseClicked(event -> {
+            if (!controller.areHintsActive()) {
+                return;
+            }
+
+            // Calculate which square was clicked
+            double x = event.getX();
+            double y = event.getY();
+
+            // Convert click coordinates to grid row/column
+            // Accounting for gaps and square size
+            int col = (int)(x / (getHgap() + GameConstants.SQUARE_SIZE));
+            int row = (int)(y / (getVgap() + GameConstants.SQUARE_SIZE));
+
+            // Make sure we're within bounds
+            if (row < 0 || row >= Board.SIZE || col < 0 || col >= Board.SIZE) {
+                return;
+            }
+
+            // Find if this square is part of a hint
+            for (WordFinder.WordPlacement hint : controller.getCurrentHints()) {
+                int hintRow = hint.getRow();
+                int hintCol = hint.getCol();
+                String word = hint.getWord();
+                Move.Direction direction = hint.getDirection();
+
+                // Check if the clicked square is part of this hint word
+                for (int i = 0; i < word.length(); i++) {
+                    int currentRow = hintRow + (direction == Move.Direction.VERTICAL ? i : 0);
+                    int currentCol = hintCol + (direction == Move.Direction.HORIZONTAL ? i : 0);
+
+                    // If the square matches and doesn't already have a tile
+                    if (currentRow == row && currentCol == col &&
+                            !controller.getBoard().getSquare(currentRow, currentCol).hasTile()) {
+                        // This square is part of this hint - apply it
+                        controller.applyHint(hint);
+                        return;
+                    }
+                }
+            }
+        });
     }
 
     /**
@@ -101,7 +219,10 @@ public class BoardView extends GridPane {
         private final Label letterLabel;
         private final Label valueLabel;
         private final Label premiumLabel;
+        private final Label hintLetterLabel;
         private boolean isTemporaryTile = false;
+        private boolean isHintTile = false;
+        private int hintColorIndex = 0;
 
         /**
          * Creates a view for a specific square on the board.
@@ -138,8 +259,15 @@ public class BoardView extends GridPane {
             premiumLabel.setFont(Font.font("Arial", 10));
             premiumLabel.setAlignment(Pos.CENTER);
 
+            // Add hint letter label
+            hintLetterLabel = new Label();
+            hintLetterLabel.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+            hintLetterLabel.setAlignment(Pos.CENTER);
+            hintLetterLabel.setTextFill(Color.WHITE);
+            hintLetterLabel.setVisible(false);
+
             // Add the labels to the square view
-            getChildren().addAll(premiumLabel, letterLabel, valueLabel);
+            getChildren().addAll(premiumLabel, letterLabel, valueLabel, hintLetterLabel);
             setAlignment(Pos.CENTER);
 
             // Set up drag-and-drop functionality
@@ -147,6 +275,63 @@ public class BoardView extends GridPane {
 
             // Initialize the visual state
             update();
+        }
+
+        /**
+         * Sets whether this square shows a hint and with which color.
+         *
+         * @param isHint Whether this is a hint tile
+         * @param colorIndex The color index for the hint (0-4)
+         */
+        public void setHintStyle(boolean isHint, int colorIndex) {
+            this.isHintTile = isHint;
+            this.hintColorIndex = colorIndex;
+
+            if (isHint) {
+                // Different colors for different hints
+                Color[] hintColors = {
+                        Color.rgb(0, 150, 0, 0.6),    // Green
+                        Color.rgb(0, 0, 200, 0.6),     // Blue
+                        Color.rgb(200, 0, 0, 0.6),     // Red
+                        Color.rgb(200, 150, 0, 0.6),   // Orange
+                        Color.rgb(100, 0, 150, 0.6)    // Purple
+                };
+
+                Color hintColor = hintColors[colorIndex];
+
+                setBackground(new Background(new BackgroundFill(
+                        hintColor, CornerRadii.EMPTY, Insets.EMPTY)));
+
+                setBorder(new Border(new BorderStroke(
+                        Color.WHITE, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, new BorderWidths(2))));
+
+                setOpacity(0.8);
+                letterLabel.setOpacity(0.3);
+                premiumLabel.setOpacity(0.3);
+                valueLabel.setOpacity(0.3);
+            } else {
+                // Reset opacity if not a hint
+                setOpacity(1.0);
+                letterLabel.setOpacity(1.0);
+                premiumLabel.setOpacity(1.0);
+                valueLabel.setOpacity(1.0);
+                hintLetterLabel.setVisible(false);
+
+                // Update to restore original appearance
+                update();
+            }
+        }
+
+        /**
+         * Shows a hint letter on this square.
+         *
+         * @param letter The letter to show
+         */
+        public void showHintLetter(char letter) {
+            if (isHintTile) {
+                hintLetterLabel.setText(String.valueOf(letter));
+                hintLetterLabel.setVisible(true);
+            }
         }
 
         /**
@@ -169,6 +354,11 @@ public class BoardView extends GridPane {
                 updateWithPlacedTile();
             } else {
                 updateEmptySquare();
+            }
+
+            // If this is a hint tile, maintain hint appearance
+            if (isHintTile) {
+                setHintStyle(true, hintColorIndex);
             }
         }
 

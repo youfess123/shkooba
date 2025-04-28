@@ -22,8 +22,6 @@ public class MoveHandler {
         this.temporaryIndices = new ArrayList<>();
     }
 
-    // In MoveHandler.java
-
     public boolean placeTileTemporarily(int rackIndex, int row, int col) {
         try {
             // Basic validation
@@ -99,7 +97,7 @@ public class MoveHandler {
 
         // For the first temporary tile, any adjacent square is valid
         if (placementPoints.size() == 1) {
-            Point existingPoint = placementPoints.getFirst();
+            Point existingPoint = placementPoints.get(0);
             return (row == existingPoint.x || col == existingPoint.y);
         }
 
@@ -178,9 +176,9 @@ public class MoveHandler {
         // Check if all placements are in the same row or column
         List<Point> points = new ArrayList<>(temporaryPlacements.keySet());
         boolean sameRow = true;
-        int firstRow = points.getFirst().x;
+        int firstRow = points.get(0).x;
         boolean sameColumn = true;
-        int firstCol = points.getFirst().y;
+        int firstCol = points.get(0).y;
 
         for (Point p : points) {
             if (p.x != firstRow) {
@@ -213,7 +211,7 @@ public class MoveHandler {
         boolean hasVerticalAdjacent = (row > 0 && board.getSquare(row - 1, col).hasTile()) ||
                 (row < Board.SIZE - 1 && board.getSquare(row + 1, col).hasTile());
 
-        // If only one direction has adjacent, use that
+        // If only one direction has adjacents, use that
         if (hasHorizontalAdjacent && !hasVerticalAdjacent) {
             return Move.Direction.HORIZONTAL;
         }
@@ -348,4 +346,8 @@ public class MoveHandler {
         return new HashMap<>(temporaryPlacements);
     }
 
+    // Added this method to access the temporary indices
+    public List<Integer> getTemporaryIndices() {
+        return new ArrayList<>(temporaryIndices);
+    }
 }

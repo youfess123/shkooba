@@ -24,13 +24,10 @@ import org.json.JSONObject;
 public class DictionaryService {
     private static final Logger logger = Logger.getLogger(DictionaryService.class.getName());
 
-    // API URL for free dictionary API
     private static final String API_URL = "https://api.dictionaryapi.dev/api/v2/entries/en/";
 
-    // Cache for previously looked up definitions to minimize API calls
     private final Map<String, List<WordDefinition>> definitionCache;
 
-    // HTTP client for API requests
     private final HttpClient httpClient;
 
     /**
@@ -99,43 +96,12 @@ public class DictionaryService {
                 .version(HttpClient.Version.HTTP_2)
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
-
-        // Initialize with some common Scrabble words to avoid API calls for common words
-        initializeCommonWordDefinitions();
     }
 
     /**
      * Pre-loads definitions for common Scrabble words.
      */
-    private void initializeCommonWordDefinitions() {
-        // Common short Scrabble words
-        Map<String, List<WordDefinition>> commonWords = new HashMap<>();
 
-        // Add some common 2-letter words
-        List<WordDefinition> aaDefs = new ArrayList<>();
-        aaDefs.add(new WordDefinition("AA", "noun", "A type of basaltic lava forming very rough, jagged masses with a light frothy texture."));
-        commonWords.put("AA", aaDefs);
-
-        List<WordDefinition> abDefs = new ArrayList<>();
-        abDefs.add(new WordDefinition("AB", "noun", "An abdominal muscle."));
-        commonWords.put("AB", abDefs);
-
-        List<WordDefinition> adDefs = new ArrayList<>();
-        adDefs.add(new WordDefinition("AD", "noun", "An advertisement."));
-        commonWords.put("AD", adDefs);
-
-        // Add more common words as needed
-        List<WordDefinition> qiDefs = new ArrayList<>();
-        qiDefs.add(new WordDefinition("QI", "noun", "The circulating life energy that in Chinese philosophy is thought to be inherent in all things."));
-        commonWords.put("QI", qiDefs);
-
-        List<WordDefinition> zaDefs = new ArrayList<>();
-        zaDefs.add(new WordDefinition("ZA", "noun", "Pizza (slang)."));
-        commonWords.put("ZA", zaDefs);
-
-        // Add all common words to cache
-        definitionCache.putAll(commonWords);
-    }
 
     /**
      * Gets definitions for a word, either from cache or by making an API request.

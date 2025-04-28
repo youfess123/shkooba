@@ -1,6 +1,7 @@
 package view;
 
 import controller.GameController;
+import controller.TilePlacer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;

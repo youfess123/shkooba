@@ -26,7 +26,6 @@ public class Dictionary {
         this.gaddag = new Gaddag();
         this.wordSet = new HashSet<>();
         this.dictionaryName = name;
-        loadFromInputStream(inputStream);
         System.out.println("Loaded dictionary '" + dictionaryName + "' with " + wordSet.size() + " words");
     }
 
@@ -64,35 +63,6 @@ public class Dictionary {
     }
 
     /**
-     * Loads words from an input stream.
-     *
-     * @param inputStream The input stream
-     * @throws IOException If the stream cannot be read
-     */
-    private void loadFromInputStream(InputStream inputStream) throws IOException {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                addWord(line);
-            }
-        }
-    }
-
-    /**
-     * Adds a word to the dictionary.
-     *
-     * @param word The word to add
-     */
-    public void addWord(String word) {
-        word = word.trim().toUpperCase();
-        if (word.isEmpty() || !word.matches("[A-Z]+")) {
-            return;
-        }
-        wordSet.add(word);
-        gaddag.insert(word);
-    }
-
-    /**
      * Checks if a word is valid.
      *
      * @param word The word to check
@@ -124,28 +94,4 @@ public class Dictionary {
         return gaddag;
     }
 
-    /**
-     * Validates if a word placement is valid using GADDAG.
-     *
-     * @param board The game board
-     * @param move The move to validate
-     * @return true if valid, false otherwise
-     */
-    public boolean validateWordPlacement(Board board, Move move) {
-        return gaddag.validateWordPlacement(board, move);
-    }
-
-    /**
-     * Finds all valid words that can be formed using the given rack
-     * with the given constraints.
-     *
-     * @param rack The rack letters
-     * @param boardConstraints The constraints imposed by the board
-     * @return A set of valid words
-     */
-    public Set<String> findValidWords(String rack, String boardConstraints) {
-        // This is a placeholder - implementation would depend on the specific needs
-        // and would leverage the GADDAG
-        return new HashSet<>();
-    }
 }

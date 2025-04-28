@@ -56,7 +56,6 @@ public class ScrabbleApp extends Application {
     private void initGame() throws IOException {
         InputStream dictionaryStream = Dictionary.loadDefaultDictionary();
         game = new Game(dictionaryStream, "Dictionary");
-//        game.addPlayer(new Player("Player 1",false));
         game.addPlayer(new Player("Player 1", false));
         game.addPlayer(new Player("Computer", true));
         logger.info("Game initialized with 2 players");

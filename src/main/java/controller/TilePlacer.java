@@ -79,6 +79,8 @@ public class TilePlacer {
         return selectedPositions.contains(index);
     }
 
+
+
     public List<Tile> getSelectedTiles() {
         return new ArrayList<>(selectedTiles);
     }

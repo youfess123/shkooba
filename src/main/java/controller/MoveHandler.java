@@ -1,7 +1,6 @@
 package controller;
 
 import model.*;
-import utilities.BoardUtils;
 import utilities.GameConstants;
 
 import java.awt.Point;
@@ -88,7 +87,7 @@ public class MoveHandler {
         }
 
         // For subsequent moves, must connect to existing tiles
-        return BoardUtils.hasAdjacentTile(board, row, col);
+        return Board.hasAdjacentTile(board, row, col);
     }
 
     private boolean isValidDirectionalPlacement(int row, int col) {

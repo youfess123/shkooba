@@ -1,7 +1,6 @@
 package model;
 
 
-import utilities.BoardUtils;
 import utilities.GameConstants;
 import utilities.ScoreCalculator;
 import utilities.WordValidator;
@@ -174,7 +173,7 @@ public class Game {
         }
 
         Player player = move.getPlayer();
-        Board tempBoard = BoardUtils.copyBoard(board);
+        Board tempBoard = Board.copyBoard(board);
         List<Point> newTilePositions = new ArrayList<>();
 
         // Place tiles on temp board to validate words and calculate score

@@ -2,7 +2,6 @@ package controller;
 
 import model.*;
 import model.Dictionary;
-import utilities.BoardUtils;
 import utilities.GameConstants;
 import utilities.WordFinder;
 import utilities.WordFinder.WordPlacement;

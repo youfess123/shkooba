@@ -87,6 +87,15 @@ public class Board {
         }
     }
 
+    public static Board copyBoard(Board originalBoard) {
+        return originalBoard.copy();
+    }
+
+
+    public static boolean hasAdjacentTile(Board board, int row, int col) {
+        return board.hasAdjacentTile(row, col);
+    }
+
     public List<Square> getAdjacentOccupiedSquares(int row, int col) {
         List<Square> adjacent = new ArrayList<>();
 

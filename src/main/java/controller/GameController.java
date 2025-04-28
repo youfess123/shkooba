@@ -1,165 +1,457 @@
 package controller;
 
+
 import javafx.application.Platform;
-import javafx.geometry.Insets;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import model.Player;
-import model.Rack;
-import model.Move;
-import model.Dictionary;
-import utilities.WordFinder;
+import model.*;
+import service.DictionaryService;
+import utilities.GameConstants;
+import view.WordDefinitionDialog;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+
+import java.awt.Point;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
-/**
- * Manages the hint functionality for the Scrabble game.
- * Uses GADDAG structure to find possible word placements.
- */
-public class HintManager {
-    private static final Logger logger = Logger.getLogger(HintManager.class.getName());
+public class GameController {
+    private static final Logger logger = Logger.getLogger(GameController.class.getName());
 
-    private final GameController gameController;
+    private final Game game;
+    private final MoveHandler moveHandler;
+    private final TilePlacer tilePlacer;
+    private final List<ComputerPlayer> computerPlayers;
+    private final ExecutorService executor;
 
-    /**
-     * Creates a new HintManager.
-     *
-     * @param gameController The game controller
-     */
-    public HintManager(GameController gameController) {
-        this.gameController = gameController;
+    private DictionaryService dictionaryService;
+    private WordDefinitionDialog definitionDialog;
+    private boolean showDefinitionsEnabled = true;
+
+    private boolean gameInProgress;
+    private volatile boolean computerMoveInProgress;
+
+    // View update listeners
+    private Runnable boardUpdateListener;
+    private Runnable rackUpdateListener;
+    private Runnable playerUpdateListener;
+    private Runnable gameOverListener;
+    private Runnable temporaryPlacementListener;
+
+    public GameController(Game game) {
+        this.game = game;
+        this.moveHandler = new MoveHandler(game);
+        this.tilePlacer = new TilePlacer();
+        this.computerPlayers = new ArrayList<>();
+        this.executor = Executors.newSingleThreadExecutor();
+        this.gameInProgress = false;
+        this.computerMoveInProgress = false;
+
+        // Initialize the dictionary service
+        this.dictionaryService = new DictionaryService();
+        this.definitionDialog = new WordDefinitionDialog(dictionaryService);
+
+        // Initialize computer players
+        for (Player player : game.getPlayers()) {
+            if (player.isComputer()) {
+                computerPlayers.add(new ComputerPlayer(player, GameConstants.AI_MEDIUM));
+            }
+        }
     }
 
-    /**
-     * Shows possible word placements based on the current board and player's rack.
-     * Uses the Gaddag structure for efficient word finding.
-     */
-    public void showHints() {
-        if (!gameController.isGameInProgress() || gameController.getCurrentPlayer().isComputer()) {
-            return;
-        }
-
-        // Get the player's rack
-        Player currentPlayer = gameController.getCurrentPlayer();
-        Rack rack = currentPlayer.getRack();
-
-        // Use the WordFinder to find valid placements
-        WordFinder wordFinder = new WordFinder(gameController.getDictionary(), gameController.getBoard());
-        List<WordFinder.WordPlacement> placements = wordFinder.findAllPlacements(rack);
-
-        // Check if we found any words
-        if (placements.isEmpty()) {
-            // Show a dialog indicating no hints are available
-            Platform.runLater(() -> {
-                Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                alert.setTitle("Hints");
-                alert.setHeaderText("No Valid Moves Available");
-                alert.setContentText("No valid word placements found with your current tiles. You might want to consider exchanging tiles or passing your turn.");
-                alert.showAndWait();
-            });
-            logger.info("No hints found for the current rack");
-            return;
-        }
-
-        // Sort by score in descending order
-        Collections.sort(placements, (a, b) -> Integer.compare(b.getScore(), a.getScore()));
-
-        // Limit to top N hints for better readability
-        int maxHints = 10;
-        List<WordFinder.WordPlacement> topPlacements = placements.stream()
-                .limit(maxHints)
-                .collect(Collectors.toList());
-
-        // Show the dialog with the hints
-        showHintDialog(topPlacements, placements.size() > maxHints ? placements.size() - maxHints : 0);
-
-        // Log the hints found
-        logger.info("Found " + placements.size() + " possible word placements");
+    public void startGame() {
+        game.start();
+        gameInProgress = true;
+        updateBoard();
+        updateRack();
+        updateCurrentPlayer();
+        makeComputerMoveIfNeeded();
     }
 
-    /**
-     * Shows a custom dialog with the hints.
-     * This uses a separate dialog from the definition feature to avoid conflicts.
-     *
-     * @param placements The list of word placements to show
-     * @param additionalCount Number of additional placements not shown
-     */
-    private void showHintDialog(List<WordFinder.WordPlacement> placements, int additionalCount) {
-        Platform.runLater(() -> {
-            // Create a custom dialog to avoid conflicts with definition dialog
-            Stage dialog = new Stage();
-            dialog.initModality(Modality.APPLICATION_MODAL);
-            dialog.setTitle("Scrabble Hints");
-            dialog.setWidth(500);
-            dialog.setHeight(400);
+    public boolean makeMove(Move move) {
+        if (!gameInProgress) {
+            return false;
+        }
 
-            VBox content = new VBox(10);
-            content.setPadding(new Insets(15));
+        boolean success = game.executeMove(move);
+        if (success) {
+            logger.info("Move executed: " + move.getType() + " by " + move.getPlayer().getName());
 
-            // Add title
-            Label titleLabel = new Label("Available Word Placements");
-            titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 16));
-            content.getChildren().add(titleLabel);
+            // Clear selections
+            tilePlacer.clearSelectedTiles();
 
-            // Create list view of placements
-            ListView<String> placementsList = new ListView<>();
-            for (int i = 0; i < placements.size(); i++) {
-                WordFinder.WordPlacement placement = placements.get(i);
-                String word = placement.getWord();
-                int score = placement.getScore();
-                int row = placement.getRow() + 1; // Convert to 1-based for display
-                int col = placement.getCol() + 1; // Convert to 1-based for display
-                String direction = placement.getDirection() == Move.Direction.HORIZONTAL ? "horizontally" : "vertically";
+            // Update views
+            updateBoard();
+            updateRack();
+            updateCurrentPlayer();
 
-                placementsList.getItems().add(String.format("%d. %s (%d points) - Starting at (%d,%d) %s",
-                        i+1, word, score, row, col, direction));
+            // Show word definitions if it's a PLACE move and not a computer player
+            if (move.getType() == Move.Type.PLACE && !move.getPlayer().isComputer() && showDefinitionsEnabled) {
+                showDefinitionsForMove(move);
             }
 
-            // Add the list to a scroll pane
-            ScrollPane scrollPane = new ScrollPane(placementsList);
-            scrollPane.setFitToWidth(true);
-            scrollPane.setFitToHeight(true);
-            VBox.setVgrow(scrollPane, Priority.ALWAYS);
-            content.getChildren().add(scrollPane);
-
-            // Add footer if there are additional placements
-            if (additionalCount > 0) {
-                Label footerLabel = new Label("...and " + additionalCount + " more possibilities.");
-                content.getChildren().add(footerLabel);
+            // Check game over
+            if (game.isGameOver()) {
+                gameInProgress = false;
+                if (gameOverListener != null) {
+                    gameOverListener.run();
+                }
+                return true;
             }
 
-            // Add OK button
-            javafx.scene.control.Button okButton = new javafx.scene.control.Button("OK");
-            okButton.setDefaultButton(true);
-            okButton.setPrefWidth(100);
-            okButton.setOnAction(e -> dialog.close());
+            // Trigger computer move if needed - ensure this happens after player moves
+            makeComputerMoveIfNeeded();
+        }
 
-            // Add button to the content
-            VBox buttonBox = new VBox();
-            buttonBox.setAlignment(javafx.geometry.Pos.CENTER);
-            buttonBox.getChildren().add(okButton);
-            content.getChildren().add(buttonBox);
+        return success;
+    }
 
-            // Set the content to the dialog
-            javafx.scene.Scene scene = new javafx.scene.Scene(content);
-            dialog.setScene(scene);
+    private void showDefinitionsForMove(Move move) {
+        List<String> words = move.getFormedWords();
+        if (words != null && !words.isEmpty()) {
+            // If only one word was formed, show its definition directly
+            if (words.size() == 1) {
+                definitionDialog.showDefinition(words.get(0));
+            } else {
+                // If multiple words were formed, show a list to choose from
+                definitionDialog.showDefinitions(words);
+            }
+        }
+    }
 
-            // Show the dialog
-            dialog.showAndWait();
+    public void showDefinitionForWord(String word) {
+        if (showDefinitionsEnabled) {
+            definitionDialog.showDefinition(word);
+        }
+    }
+
+    public void showWordHistory() {
+        List<String> playedWords = new ArrayList<>();
+
+        // Collect all words from move history
+        for (Move move : game.getMoveHistory()) {
+            if (move.getType() == Move.Type.PLACE) {
+                playedWords.addAll(move.getFormedWords());
+            }
+        }
+
+        // Remove duplicates
+        List<String> uniqueWords = new ArrayList<>(new HashSet<>(playedWords));
+
+        // Sort alphabetically
+        Collections.sort(uniqueWords);
+
+        if (!uniqueWords.isEmpty()) {
+            definitionDialog.showDefinitions(uniqueWords);
+        }
+    }
+
+    // Update commitPlacement, exchangeTiles, and passTurn methods to also trigger AI moves
+
+    public boolean commitPlacement() {
+        boolean success = moveHandler.commitPlacement();
+        if (success) {
+            updateBoard();
+            updateRack();
+            updateCurrentPlayer();
+            makeComputerMoveIfNeeded(); // Add this call to ensure AI plays after player
+        }
+        return success;
+    }
+
+    public boolean exchangeTiles() {
+        List<Tile> selectedTiles = tilePlacer.getSelectedTiles();
+        boolean success = moveHandler.exchangeTiles(selectedTiles);
+        if (success) {
+            tilePlacer.clearSelectedTiles();
+            updateBoard();
+            updateRack();
+            updateCurrentPlayer();
+            makeComputerMoveIfNeeded(); // Add this call
+        }
+        return success;
+    }
+
+    public boolean passTurn() {
+        boolean success = moveHandler.passTurn();
+        if (success) {
+            updateBoard();
+            updateRack();
+            updateCurrentPlayer();
+            makeComputerMoveIfNeeded(); // Add this call
+        }
+        return success;
+    }
+
+    // Improve the makeComputerMoveIfNeeded method to handle multiple AI turns if needed
+    public void makeComputerMoveIfNeeded() {
+        Player currentPlayer = game.getCurrentPlayer();
+        if (currentPlayer.isComputer() && !computerMoveInProgress && gameInProgress) {
+            logger.info("Computer's turn - preparing move");
+            computerMoveInProgress = true;
+            updateCurrentPlayer();
+
+            ComputerPlayer computerPlayer = getComputerPlayerFor(currentPlayer);
+            if (computerPlayer == null) {
+                logger.warning("Computer player not found");
+                Move passMove = Move.createPassMove(currentPlayer);
+                makeMove(passMove);
+                computerMoveInProgress = false;
+                return;
+            }
+
+            // Set up emergency timeout
+            ScheduledExecutorService emergencyTimer = setupEmergencyTimer(currentPlayer);
+
+            // Execute computer move on a separate thread
+            executeComputerMove(computerPlayer, currentPlayer, emergencyTimer);
+        }
+    }
+
+    private ComputerPlayer getComputerPlayerFor(Player player) {
+        for (ComputerPlayer cp : computerPlayers) {
+            if (cp.getPlayer() == player) {
+                return cp;
+            }
+        }
+        return null;
+    }
+
+    private ScheduledExecutorService setupEmergencyTimer(Player currentPlayer) {
+        ScheduledExecutorService emergencyTimer = Executors.newSingleThreadScheduledExecutor();
+        emergencyTimer.schedule(() -> {
+            if (computerMoveInProgress) {
+                logger.warning("Computer move taking too long - forcing PASS");
+                Platform.runLater(() -> {
+                    Move passMove = Move.createPassMove(currentPlayer);
+                    makeMove(passMove);
+                    computerMoveInProgress = false;
+                });
+            }
+        }, 5, TimeUnit.SECONDS);
+
+        return emergencyTimer;
+    }
+
+    // In GameController.java
+
+    private void executeComputerMove(ComputerPlayer computerPlayer, Player currentPlayer,
+                                     ScheduledExecutorService emergencyTimer) {
+        executor.submit(() -> {
+            try {
+                Move computerMove = computerPlayer.generateMove(game);
+                Thread.sleep(1000); // Small delay for better UX
+
+                // Cancel the emergency timeout
+                emergencyTimer.shutdownNow();
+
+                Platform.runLater(() -> {
+                    try {
+                        // Use makeMove instead of directly calling game.executeMove
+                        // This ensures that if there are multiple AI players, they will play in sequence
+                        boolean success = makeMove(computerMove);
+
+                        if (!success) {
+                            logger.warning("Computer move failed, passing turn");
+                            Move passMove = Move.createPassMove(currentPlayer);
+                            makeMove(passMove);
+                        }
+                    } catch (Exception e) {
+                        logger.severe("Error executing computer move: " + e.getMessage());
+                        Move passMove = Move.createPassMove(currentPlayer);
+                        makeMove(passMove);
+                    } finally {
+                        computerMoveInProgress = false;
+                    }
+                });
+            } catch (Exception e) {
+                logger.severe("Error in computer move: " + e.getMessage());
+                Platform.runLater(() -> {
+                    emergencyTimer.shutdownNow();
+                    Move passMove = Move.createPassMove(currentPlayer);
+                    makeMove(passMove);
+                    computerMoveInProgress = false;
+                });
+            }
         });
+    }
+
+    public void setTemporaryPlacementListener(Runnable listener) {
+        this.temporaryPlacementListener = listener;
+    }
+
+    public boolean placeTileTemporarily(int rackIndex, int row, int col) {
+        boolean success = moveHandler.placeTileTemporarily(rackIndex, row, col);
+        if (success) {
+            updateBoard();
+            updateRack();
+
+            // Add this line to update button states when tiles are placed
+            if (temporaryPlacementListener != null) {
+                Platform.runLater(temporaryPlacementListener);
+            }
+        }
+        return success;
+    }
+
+
+    public void cancelPlacements() {
+        moveHandler.cancelPlacements();
+        updateBoard();
+
+        // Add this line to update button states when placements are canceled
+        if (temporaryPlacementListener != null) {
+            Platform.runLater(temporaryPlacementListener);
+        }
+    }
+
+
+    public void selectTileFromRack(int index) {
+        if (!gameInProgress) {
+            return;
+        }
+
+        Player currentPlayer = game.getCurrentPlayer();
+        tilePlacer.selectTileFromRack(currentPlayer, index);
+        updateRack();
+
+        if (temporaryPlacementListener != null) {
+            Platform.runLater(temporaryPlacementListener);
+        }
+    }
+
+    public void setBlankTileLetter(int rackIndex, char letter) {
+        Player currentPlayer = game.getCurrentPlayer();
+        tilePlacer.setBlankTileLetter(currentPlayer, rackIndex, letter);
+        updateRack();
+    }
+
+    // Game state getters
+
+    public Board getBoard() {
+        return game.getBoard();
+    }
+
+    public Player getCurrentPlayer() {
+        return game.getCurrentPlayer();
+    }
+
+    public List<Player> getPlayers() {
+        return game.getPlayers();
+    }
+
+    public List<Move> getMoveHistory() {
+        return game.getMoveHistory();
+    }
+
+    public int getRemainingTileCount() {
+        return game.getTileBag().getTileCount();
+    }
+
+    // Status query methods
+
+    public boolean hasTemporaryTileAt(int row, int col) {
+        return moveHandler.hasTemporaryTileAt(row, col);
+    }
+
+    public Tile getTemporaryTileAt(int row, int col) {
+        return moveHandler.getTemporaryTileAt(row, col);
+    }
+
+    public boolean isValidTemporaryPlacement(int row, int col) {
+        return moveHandler.isValidTemporaryPlacement(row, col);
+    }
+
+    public Move.Direction determineDirection() {
+        return moveHandler.determineDirection();
+    }
+
+    public boolean isTileSelected(int index) {
+        return tilePlacer.isTileSelected(index);
+    }
+
+    // Getters for collections
+
+    public Map<Point, Tile> getTemporaryPlacements() {
+        return moveHandler.getTemporaryPlacements();
+    }
+
+    public List<Tile> getSelectedTiles() {
+        return tilePlacer.getSelectedTiles();
+    }
+
+    // View update methods
+
+    private void updateBoard() {
+        if (boardUpdateListener != null) {
+            Platform.runLater(boardUpdateListener);
+        }
+    }
+
+    private void updateRack() {
+        if (rackUpdateListener != null) {
+            Platform.runLater(rackUpdateListener);
+        }
+    }
+
+    private void updateCurrentPlayer() {
+        if (playerUpdateListener != null) {
+            Platform.runLater(playerUpdateListener);
+        }
+    }
+
+    // Listener setters
+
+    public void setBoardUpdateListener(Runnable listener) {
+        this.boardUpdateListener = listener;
+    }
+
+    public void setRackUpdateListener(Runnable listener) {
+        this.rackUpdateListener = listener;
+    }
+
+    public void setPlayerUpdateListener(Runnable listener) {
+        this.playerUpdateListener = listener;
+    }
+
+    public void setGameOverListener(Runnable listener) {
+        this.gameOverListener = listener;
+    }
+
+    // Resource cleanup
+
+
+    /**
+     * Enables or disables the automatic display of word definitions.
+     *
+     * @param enabled Whether to show definitions automatically after moves
+     */
+    public void setShowDefinitionsEnabled(boolean enabled) {
+        this.showDefinitionsEnabled = enabled;
+    }
+
+    /**
+     * Checks if word definitions are enabled.
+     *
+     * @return Whether word definitions are enabled
+     */
+    public boolean isShowDefinitionsEnabled() {
+        return showDefinitionsEnabled;
+    }
+
+
+    // Modify the shutdown method to close the definition dialog
+    public void shutdown() {
+        if (definitionDialog != null) {
+            definitionDialog.close();
+        }
+
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 }

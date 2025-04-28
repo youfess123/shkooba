@@ -42,8 +42,6 @@ public class BoardView extends GridPane {
 
         initializeLayout();
         initializeSquares();
-        setupHintClickEvents();
-
         logger.fine("Board view initialized");
     }
 
@@ -92,28 +90,9 @@ public class BoardView extends GridPane {
             }
         }
 
-        // Show hints if active
-        if (controller.areHintsActive()) {
-            showHints();
-        }
+
     }
 
-    /**
-     * Displays hint highlights on the board.
-     */
-    private void showHints() {
-        // Clear any previous hint styling
-        clearHintStyling();
-
-        // Get current hints
-        java.util.List<WordFinder.WordPlacement> hints = controller.getCurrentHints();
-
-        // Apply styling for each hint
-        for (int i = 0; i < hints.size(); i++) {
-            WordFinder.WordPlacement hint = hints.get(i);
-            highlightHint(hint, i);
-        }
-    }
 
     /**
      * Clears hint styling from all squares.
@@ -126,88 +105,7 @@ public class BoardView extends GridPane {
         }
     }
 
-    /**
-     * Highlights a specific hint word on the board.
-     *
-     * @param hint The word placement to highlight
-     * @param hintIndex The index of the hint (used for coloring)
-     */
-    private void highlightHint(WordFinder.WordPlacement hint, int hintIndex) {
-        int row = hint.getRow();
-        int col = hint.getCol();
-        String word = hint.getWord();
-        Move.Direction direction = hint.getDirection();
 
-        // Use a different color for each hint (rotate through 5 colors)
-        int colorIndex = hintIndex % 5;
-
-        for (int i = 0; i < word.length(); i++) {
-            int currentRow = row + (direction == Move.Direction.VERTICAL ? i : 0);
-            int currentCol = col + (direction == Move.Direction.HORIZONTAL ? i : 0);
-
-            // Skip squares that already have tiles
-            if (controller.getBoard().getSquare(currentRow, currentCol).hasTile()) {
-                continue;
-            }
-
-            // Highlight empty squares where hint tiles would go
-            if (currentRow >= 0 && currentRow < Board.SIZE &&
-                    currentCol >= 0 && currentCol < Board.SIZE) {
-                squareViews[currentRow][currentCol].setHintStyle(true, colorIndex);
-
-                // Show hint letters
-                squareViews[currentRow][currentCol].showHintLetter(word.charAt(i));
-            }
-        }
-    }
-
-    /**
-     * Sets up click handling for hints.
-     */
-    private void setupHintClickEvents() {
-        // We'll add a mouse click handler to the entire board
-        setOnMouseClicked(event -> {
-            if (!controller.areHintsActive()) {
-                return;
-            }
-
-            // Calculate which square was clicked
-            double x = event.getX();
-            double y = event.getY();
-
-            // Convert click coordinates to grid row/column
-            // Accounting for gaps and square size
-            int col = (int)(x / (getHgap() + GameConstants.SQUARE_SIZE));
-            int row = (int)(y / (getVgap() + GameConstants.SQUARE_SIZE));
-
-            // Make sure we're within bounds
-            if (row < 0 || row >= Board.SIZE || col < 0 || col >= Board.SIZE) {
-                return;
-            }
-
-            // Find if this square is part of a hint
-            for (WordFinder.WordPlacement hint : controller.getCurrentHints()) {
-                int hintRow = hint.getRow();
-                int hintCol = hint.getCol();
-                String word = hint.getWord();
-                Move.Direction direction = hint.getDirection();
-
-                // Check if the clicked square is part of this hint word
-                for (int i = 0; i < word.length(); i++) {
-                    int currentRow = hintRow + (direction == Move.Direction.VERTICAL ? i : 0);
-                    int currentCol = hintCol + (direction == Move.Direction.HORIZONTAL ? i : 0);
-
-                    // If the square matches and doesn't already have a tile
-                    if (currentRow == row && currentCol == col &&
-                            !controller.getBoard().getSquare(currentRow, currentCol).hasTile()) {
-                        // This square is part of this hint - apply it
-                        controller.applyHint(hint);
-                        return;
-                    }
-                }
-            }
-        });
-    }
 
     /**
      * Visual representation of a single square on the board.

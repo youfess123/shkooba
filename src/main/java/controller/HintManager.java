@@ -1,11 +1,23 @@
 package controller;
 
 import javafx.application.Platform;
+import javafx.geometry.Insets;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 import model.Player;
 import model.Rack;
-import model.Tile;
 import model.Move;
+import model.Dictionary;
 import utilities.WordFinder;
 
 import java.util.ArrayList;
@@ -16,14 +28,12 @@ import java.util.stream.Collectors;
 
 /**
  * Manages the hint functionality for the Scrabble game.
- * Responsible for finding, displaying, and applying word placement hints.
+ * Uses GADDAG structure to find possible word placements.
  */
 public class HintManager {
     private static final Logger logger = Logger.getLogger(HintManager.class.getName());
 
     private final GameController gameController;
-    private List<WordFinder.WordPlacement> currentHints = new ArrayList<>();
-    private boolean hintsActive = false;
 
     /**
      * Creates a new HintManager.
@@ -35,21 +45,15 @@ public class HintManager {
     }
 
     /**
-     * Shows or hides word placement hints for the current player.
-     * If hints are already active, this will hide them.
+     * Shows possible word placements based on the current board and player's rack.
+     * Uses the Gaddag structure for efficient word finding.
      */
     public void showHints() {
         if (!gameController.isGameInProgress() || gameController.getCurrentPlayer().isComputer()) {
             return;
         }
 
-        // Toggle hints - if already showing, hide them
-        if (hintsActive) {
-            clearHints();
-            return;
-        }
-
-        // Get hints using the WordFinder
+        // Get the player's rack
         Player currentPlayer = gameController.getCurrentPlayer();
         Rack rack = currentPlayer.getRack();
 
@@ -57,153 +61,105 @@ public class HintManager {
         WordFinder wordFinder = new WordFinder(gameController.getDictionary(), gameController.getBoard());
         List<WordFinder.WordPlacement> placements = wordFinder.findAllPlacements(rack);
 
-        // Check if we found any hints
+        // Check if we found any words
         if (placements.isEmpty()) {
             // Show a dialog indicating no hints are available
             Platform.runLater(() -> {
                 Alert alert = new Alert(Alert.AlertType.INFORMATION);
                 alert.setTitle("Hints");
-                alert.setHeaderText("No Hints Available");
-                alert.setContentText("No valid word placements found with your current tiles.");
+                alert.setHeaderText("No Valid Moves Available");
+                alert.setContentText("No valid word placements found with your current tiles. You might want to consider exchanging tiles or passing your turn.");
                 alert.showAndWait();
             });
             logger.info("No hints found for the current rack");
             return;
         }
 
-        // Limit to top N hints for better usability
-        int maxHints = 5;
-        currentHints = placements.stream()
+        // Sort by score in descending order
+        Collections.sort(placements, (a, b) -> Integer.compare(b.getScore(), a.getScore()));
+
+        // Limit to top N hints for better readability
+        int maxHints = 10;
+        List<WordFinder.WordPlacement> topPlacements = placements.stream()
                 .limit(maxHints)
                 .collect(Collectors.toList());
 
-        // Update the board to show hints
-        hintsActive = true;
-        gameController.updateBoard();
-
-        // Add a simple information dialog about the hints
-        Platform.runLater(() -> {
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Hints");
-            alert.setHeaderText("Found " + currentHints.size() + " possible word placements");
-
-            StringBuilder content = new StringBuilder("Click on a highlighted square to place the suggested word.\n\n");
-            content.append("Available hints (sorted by score):\n");
-
-            for (int i = 0; i < currentHints.size(); i++) {
-                WordFinder.WordPlacement hint = currentHints.get(i);
-                content.append((i+1)).append(". ")
-                        .append(hint.getWord()).append(" (")
-                        .append(hint.getScore()).append(" points)\n");
-            }
-
-            alert.setContentText(content.toString());
-            alert.showAndWait();
-        });
+        // Show the dialog with the hints
+        showHintDialog(topPlacements, placements.size() > maxHints ? placements.size() - maxHints : 0);
 
         // Log the hints found
-        logger.info("Found " + currentHints.size() + " possible word placements");
-        for (WordFinder.WordPlacement wp : currentHints) {
-            logger.fine("Hint: " + wp.toString());
-        }
+        logger.info("Found " + placements.size() + " possible word placements");
     }
 
     /**
-     * Clears all current hints and updates the board.
-     */
-    public void clearHints() {
-        hintsActive = false;
-        currentHints.clear();
-        gameController.updateBoard();
-    }
-
-    /**
-     * Checks if hints are currently active/visible.
+     * Shows a custom dialog with the hints.
+     * This uses a separate dialog from the definition feature to avoid conflicts.
      *
-     * @return true if hints are active, false otherwise
+     * @param placements The list of word placements to show
+     * @param additionalCount Number of additional placements not shown
      */
-    public boolean areHintsActive() {
-        return hintsActive;
-    }
+    private void showHintDialog(List<WordFinder.WordPlacement> placements, int additionalCount) {
+        Platform.runLater(() -> {
+            // Create a custom dialog to avoid conflicts with definition dialog
+            Stage dialog = new Stage();
+            dialog.initModality(Modality.APPLICATION_MODAL);
+            dialog.setTitle("Scrabble Hints");
+            dialog.setWidth(500);
+            dialog.setHeight(400);
 
-    /**
-     * Gets the current list of word placement hints.
-     *
-     * @return An unmodifiable list of word placements
-     */
-    public List<WordFinder.WordPlacement> getCurrentHints() {
-        return Collections.unmodifiableList(currentHints);
-    }
+            VBox content = new VBox(10);
+            content.setPadding(new Insets(15));
 
-    /**
-     * Applies a selected hint by placing the necessary tiles on the board.
-     *
-     * @param hint The word placement hint to apply
-     */
-    public void applyHint(WordFinder.WordPlacement hint) {
-        if (!hintsActive || hint == null) {
-            return;
-        }
+            // Add title
+            Label titleLabel = new Label("Available Word Placements");
+            titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+            content.getChildren().add(titleLabel);
 
-        // Clear any existing temporary placements
-        gameController.cancelPlacements();
+            // Create list view of placements
+            ListView<String> placementsList = new ListView<>();
+            for (int i = 0; i < placements.size(); i++) {
+                WordFinder.WordPlacement placement = placements.get(i);
+                String word = placement.getWord();
+                int score = placement.getScore();
+                int row = placement.getRow() + 1; // Convert to 1-based for display
+                int col = placement.getCol() + 1; // Convert to 1-based for display
+                String direction = placement.getDirection() == Move.Direction.HORIZONTAL ? "horizontally" : "vertically";
 
-        // Apply the hint by placing its tiles
-        int row = hint.getRow();
-        int col = hint.getCol();
-        Move.Direction direction = hint.getDirection();
-        String word = hint.getWord();
-
-        logger.info("Applying hint: " + word + " at (" + row + "," + col + ") " +
-                (direction == Move.Direction.HORIZONTAL ? "horizontally" : "vertically"));
-
-        // Process each letter in the word
-        for (int i = 0; i < word.length(); i++) {
-            int currentRow = row + (direction == Move.Direction.VERTICAL ? i : 0);
-            int currentCol = col + (direction == Move.Direction.HORIZONTAL ? i : 0);
-
-            // Skip if there's already a tile on the board
-            if (gameController.getBoard().getSquare(currentRow, currentCol).hasTile()) {
-                logger.fine("Skipping position (" + currentRow + "," + currentCol + ") - already has tile");
-                continue;
+                placementsList.getItems().add(String.format("%d. %s (%d points) - Starting at (%d,%d) %s",
+                        i+1, word, score, row, col, direction));
             }
 
-            // Find the tile in the rack
-            char letter = word.charAt(i);
-            int rackIndex = findTileInRack(letter);
+            // Add the list to a scroll pane
+            ScrollPane scrollPane = new ScrollPane(placementsList);
+            scrollPane.setFitToWidth(true);
+            scrollPane.setFitToHeight(true);
+            VBox.setVgrow(scrollPane, Priority.ALWAYS);
+            content.getChildren().add(scrollPane);
 
-            if (rackIndex >= 0) {
-                logger.fine("Placing " + letter + " from rack index " + rackIndex +
-                        " at (" + currentRow + "," + currentCol + ")");
-                gameController.placeTileTemporarily(rackIndex, currentRow, currentCol);
-            } else {
-                logger.warning("Could not find tile for letter " + letter + " in rack");
+            // Add footer if there are additional placements
+            if (additionalCount > 0) {
+                Label footerLabel = new Label("...and " + additionalCount + " more possibilities.");
+                content.getChildren().add(footerLabel);
             }
-        }
 
-        // Clear hints after applying
-        clearHints();
-    }
+            // Add OK button
+            javafx.scene.control.Button okButton = new javafx.scene.control.Button("OK");
+            okButton.setDefaultButton(true);
+            okButton.setPrefWidth(100);
+            okButton.setOnAction(e -> dialog.close());
 
-    /**
-     * Finds a tile in the current player's rack that matches the given letter.
-     *
-     * @param letter The letter to find
-     * @return The index of the tile in the rack, or -1 if not found
-     */
-    private int findTileInRack(char letter) {
-        Rack rack = gameController.getCurrentPlayer().getRack();
-        // Get tiles that are already being used in temporary placements
-        List<Integer> usedIndices = gameController.getTemporaryIndices();
+            // Add button to the content
+            VBox buttonBox = new VBox();
+            buttonBox.setAlignment(javafx.geometry.Pos.CENTER);
+            buttonBox.getChildren().add(okButton);
+            content.getChildren().add(buttonBox);
 
-        // Find a tile in the rack that matches the letter and isn't already used
-        for (int i = 0; i < rack.size(); i++) {
-            Tile tile = rack.getTile(i);
-            // Check if the tile has the right letter and isn't already used in a temporary placement
-            if (tile.getLetter() == letter && !usedIndices.contains(i)) {
-                return i;
-            }
-        }
-        return -1; // Not found
+            // Set the content to the dialog
+            javafx.scene.Scene scene = new javafx.scene.Scene(content);
+            dialog.setScene(scene);
+
+            // Show the dialog
+            dialog.showAndWait();
+        });
     }
 }

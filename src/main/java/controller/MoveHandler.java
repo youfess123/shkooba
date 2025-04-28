@@ -1,6 +1,5 @@
 package controller;
 
-
 import model.*;
 import utilities.BoardUtils;
 import utilities.GameConstants;
@@ -346,7 +345,12 @@ public class MoveHandler {
         return new HashMap<>(temporaryPlacements);
     }
 
-    // Added this method to access the temporary indices
+    /**
+     * Gets the indices of tiles in the rack that are currently placed temporarily on the board.
+     * This method is needed for the hint feature to avoid selecting tiles that are already in use.
+     *
+     * @return A list of rack indices
+     */
     public List<Integer> getTemporaryIndices() {
         return new ArrayList<>(temporaryIndices);
     }

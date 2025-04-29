@@ -79,7 +79,6 @@ public class WordFinder {
      */
     public List<WordPlacement> findAllPlacements(Rack rack) {
         List<WordPlacement> placements = new ArrayList<>();
-        Gaddag gaddag = dictionary.getGaddag();
         String rackLetters = getAvailableLetters(rack);
         List<Tile> rackTiles = new ArrayList<>(rack.getTiles());
 
@@ -89,39 +88,98 @@ public class WordFinder {
             return placements;
         }
 
-        // Find anchor points
-        Map<Point, String[]> horizontalContext = new HashMap<>();
-        Map<Point, String[]> verticalContext = new HashMap<>();
+        // Find valid anchor points (empty squares adjacent to existing tiles)
+        List<Point> anchorPoints = findAnchorPoints();
+        logger.info("Found " + anchorPoints.size() + " anchor points");
 
-        for (int row = 0; row < Board.SIZE; row++) {
-            for (int col = 0; col < Board.SIZE; col++) {
-                if (board.getSquare(row, col).hasTile()) continue;
-                if (!hasAdjacentTile(row, col)) continue;
+        // For each anchor point, find potential placements
+        for (Point anchor : anchorPoints) {
+            int row = anchor.x;
+            int col = anchor.y;
 
-                // Valid anchor point - find prefixes and suffixes
-                Point point = new Point(row, col);
-                horizontalContext.put(point, getPartialWordsAt(row, col, Move.Direction.HORIZONTAL));
-                verticalContext.put(point, getPartialWordsAt(row, col, Move.Direction.VERTICAL));
-            }
-        }
-
-        // For each anchor point, try all possible placements
-        for (Point anchor : horizontalContext.keySet()) {
-            // Try horizontal placements
-            String[] hContext = horizontalContext.get(anchor);
-            findPlacements(anchor.x, anchor.y, Move.Direction.HORIZONTAL,
+            // Try horizontal words through this anchor
+            String[] hContext = getWordContext(row, col, Move.Direction.HORIZONTAL);
+            findPlacements(row, col, Move.Direction.HORIZONTAL,
                     hContext[0], hContext[1], rackLetters, rackTiles, placements);
 
-            // Try vertical placements
-            String[] vContext = verticalContext.get(anchor);
-            findPlacements(anchor.x, anchor.y, Move.Direction.VERTICAL,
+            // Try vertical words through this anchor
+            String[] vContext = getWordContext(row, col, Move.Direction.VERTICAL);
+            findPlacements(row, col, Move.Direction.VERTICAL,
                     vContext[0], vContext[1], rackLetters, rackTiles, placements);
         }
 
         // Sort by score
-        placements.sort((p1, p2) -> Integer.compare(p2.getScore(), p1.getScore()));
+        placements.sort(Comparator.comparing(WordPlacement::getScore).reversed());
         return placements;
     }
+
+    private String[] getWordContext(int row, int col, Move.Direction direction) {
+        String prefix = "";
+        String suffix = "";
+
+        if (direction == Move.Direction.HORIZONTAL) {
+            // Get prefix (letters to the left)
+            StringBuilder prefixBuilder = new StringBuilder();
+            int c = col - 1;
+            while (c >= 0 && board.getSquare(row, c).hasTile()) {
+                prefixBuilder.insert(0, board.getSquare(row, c).getTile().getLetter());
+                c--;
+            }
+            prefix = prefixBuilder.toString();
+
+            // Get suffix (letters to the right)
+            StringBuilder suffixBuilder = new StringBuilder();
+            c = col + 1;
+            while (c < Board.SIZE && board.getSquare(row, c).hasTile()) {
+                suffixBuilder.append(board.getSquare(row, c).getTile().getLetter());
+                c++;
+            }
+            suffix = suffixBuilder.toString();
+        } else {
+            // Get prefix (letters above)
+            StringBuilder prefixBuilder = new StringBuilder();
+            int r = row - 1;
+            while (r >= 0 && board.getSquare(r, col).hasTile()) {
+                prefixBuilder.insert(0, board.getSquare(r, col).getTile().getLetter());
+                r--;
+            }
+            prefix = prefixBuilder.toString();
+
+            // Get suffix (letters below)
+            StringBuilder suffixBuilder = new StringBuilder();
+            r = row + 1;
+            while (r < Board.SIZE && board.getSquare(r, col).hasTile()) {
+                suffixBuilder.append(board.getSquare(r, col).getTile().getLetter());
+                r++;
+            }
+            suffix = suffixBuilder.toString();
+        }
+
+        return new String[] { prefix, suffix };
+    }
+
+    private List<Point> findAnchorPoints() {
+        List<Point> anchors = new ArrayList<>();
+
+        for (int row = 0; row < Board.SIZE; row++) {
+            for (int col = 0; col < Board.SIZE; col++) {
+                // Skip squares that already have tiles
+                if (board.getSquare(row, col).hasTile()) {
+                    continue;
+                }
+
+                // Check if this empty square is ACTUALLY adjacent to any tiles
+                if (hasAdjacentTile(row, col)) {
+                    // Add debugging to verify the anchor point
+                    logger.info("Found valid anchor point at (" + row + "," + col + ")");
+                    anchors.add(new Point(row, col));
+                }
+            }
+        }
+
+        return anchors;
+    }
+
 
     /**
      * Finds word placements at an anchor point in a specific direction.
@@ -130,51 +188,69 @@ public class WordFinder {
                                 String prefix, String suffix,
                                 String rackLetters, List<Tile> rackTiles,
                                 List<WordPlacement> placements) {
-        // Try to use each letter in the rack as an anchor
+
+        logger.fine("Finding placements at " + row + "," + col + " " + direction +
+                " with prefix: '" + prefix + "', suffix: '" + suffix + "'");
+
+        // Create a combined letter set including rack and board context
+        StringBuilder allLettersBuilder = new StringBuilder(rackLetters);
+        allLettersBuilder.append(prefix).append(suffix);
+        String allLetters = allLettersBuilder.toString();
+
+        // Try each letter from the rack at the anchor position
         for (char letter : getUniqueLetters(rackLetters)) {
+            // Get words that can be formed with all available letters
             Set<String> words = dictionary.getGaddag().getWordsFrom(
-                    rackLetters, letter, true, true);
+                    allLetters, letter, true, true);
 
             for (String word : words) {
-                // Check if word can be placed with the anchor letter at this position
+                // Skip words shorter than 2 letters
+                if (word.length() < 2) continue;
+
+                // Find all positions where the anchor letter appears in the word
                 for (int pos = 0; pos < word.length(); pos++) {
                     if (word.charAt(pos) != letter) continue;
 
-                    // Calculate start position
+                    // Calculate starting position
                     int startRow = direction == Move.Direction.HORIZONTAL ? row : row - pos;
                     int startCol = direction == Move.Direction.HORIZONTAL ? col - pos : col;
 
-                    // Skip invalid positions
+                    // Skip if placement would go off the board
                     if (startRow < 0 || startCol < 0 ||
                             (direction == Move.Direction.HORIZONTAL && startCol + word.length() > Board.SIZE) ||
                             (direction == Move.Direction.VERTICAL && startRow + word.length() > Board.SIZE)) {
                         continue;
                     }
 
-                    // Check if the word is compatible with existing tiles and context
-                    if (!isWordCompatible(word, direction, startRow, startCol, prefix, suffix)) {
+                    // Check if placement is compatible with existing board tiles
+                    if (!isPlacementCompatible(word, direction, startRow, startCol)) {
                         continue;
                     }
 
-                    // Try to place the word
+                    // Try placing the word
                     Board tempBoard = board.copy();
                     List<Point> newPositions = new ArrayList<>();
                     List<Tile> tilesNeeded = placeTilesOnTempBoard(
                             word, direction, startRow, startCol, rackTiles, tempBoard, newPositions);
 
-                    if (tilesNeeded == null) continue; // Don't have the needed tiles
+                    // Skip if we can't form the word or if no new tiles would be placed
+                    if (tilesNeeded == null || tilesNeeded.isEmpty()) {
+                        continue;
+                    }
 
-                    // Validate the placement
+                    // Validate all words formed
+                    Move testMove = createTestMove(direction, startRow, startCol);
                     List<String> formedWords = WordValidator.validateWords(
-                            tempBoard, createTestMove(direction, startRow, startCol), newPositions, dictionary);
+                            tempBoard, testMove, newPositions, dictionary);
 
-                    if (formedWords.isEmpty()) continue; // Invalid placement
+                    if (formedWords.isEmpty()) {
+                        continue; // Invalid placement
+                    }
 
                     // Calculate score
                     Set<Point> newPositionsSet = new HashSet<>(newPositions);
                     int score = ScoreCalculator.calculateMoveScore(
-                            createTestMove(direction, startRow, startCol),
-                            tempBoard, formedWords, newPositionsSet);
+                            testMove, tempBoard, formedWords, newPositionsSet);
 
                     // Create placement
                     placements.add(new WordPlacement(
@@ -182,6 +258,35 @@ public class WordFinder {
                 }
             }
         }
+    }
+
+    private boolean isPlacementCompatible(String word, Move.Direction direction,
+                                          int startRow, int startCol) {
+        int row = startRow;
+        int col = startCol;
+
+        for (int i = 0; i < word.length(); i++) {
+            if (row >= Board.SIZE || col >= Board.SIZE) {
+                return false;
+            }
+
+            // If there's already a tile here, it must match
+            if (board.getSquare(row, col).hasTile()) {
+                char boardLetter = board.getSquare(row, col).getTile().getLetter();
+                if (boardLetter != word.charAt(i)) {
+                    return false; // Mismatch with existing tile
+                }
+            }
+
+            // Move to next position
+            if (direction == Move.Direction.HORIZONTAL) {
+                col++;
+            } else {
+                row++;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -207,16 +312,23 @@ public class WordFinder {
         for (int i = 0; i < word.length(); i++) {
             char letter = word.charAt(i);
 
+            // Check bounds
+            if (row >= Board.SIZE || col >= Board.SIZE) {
+                return null;
+            }
+
             if (tempBoard.getSquare(row, col).hasTile()) {
                 // Check if existing tile matches needed letter
                 Tile existingTile = tempBoard.getSquare(row, col).getTile();
                 if (existingTile.getLetter() != letter) {
-                    return null; // Mismatch
+                    return null; // Mismatch with existing tile
                 }
             } else {
                 // Need a new tile from rack
                 Tile tileToUse = findTileForLetter(letter, availableTiles);
-                if (tileToUse == null) return null; // Don't have needed tile
+                if (tileToUse == null) {
+                    return null; // Don't have needed tile
+                }
 
                 // Remove from available tiles
                 availableTiles.remove(tileToUse);
@@ -476,10 +588,22 @@ public class WordFinder {
      * Checks if a position has adjacent tiles.
      */
     private boolean hasAdjacentTile(int row, int col) {
-        if (row > 0 && board.getSquare(row - 1, col).hasTile()) return true;
-        if (row < Board.SIZE - 1 && board.getSquare(row + 1, col).hasTile()) return true;
-        if (col > 0 && board.getSquare(row, col - 1).hasTile()) return true;
-        if (col < Board.SIZE - 1 && board.getSquare(row, col + 1).hasTile()) return true;
-        return false;
+        // Check each of the four adjacent positions
+        boolean hasAdjacent = false;
+
+        if (row > 0 && board.getSquare(row - 1, col).hasTile()) {
+            hasAdjacent = true;
+        }
+        if (row < Board.SIZE - 1 && board.getSquare(row + 1, col).hasTile()) {
+            hasAdjacent = true;
+        }
+        if (col > 0 && board.getSquare(row, col - 1).hasTile()) {
+            hasAdjacent = true;
+        }
+        if (col < Board.SIZE - 1 && board.getSquare(row, col + 1).hasTile()) {
+            hasAdjacent = true;
+        }
+
+        return hasAdjacent;
     }
 }

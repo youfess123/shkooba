@@ -1,6 +1,5 @@
 package view;
 
-
 import controller.GameController;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -16,13 +15,12 @@ import model.Move;
 import model.Square;
 import model.Tile;
 import utilities.GameConstants;
-import utilities.WordFinder;
 
 import java.awt.Point;
 import java.util.logging.Logger;
 
 /**
- * Visual representation of the Scrabble board in the user interface.
+ * Visual representation of the Scrabble board in the user interface with row and column coordinates.
  * Renders a grid of squares, handling drag-and-drop of tiles.
  */
 public class BoardView extends GridPane {
@@ -41,8 +39,9 @@ public class BoardView extends GridPane {
         this.squareViews = new SquareView[Board.SIZE][Board.SIZE];
 
         initializeLayout();
+        addCoordinateLabels();
         initializeSquares();
-        logger.fine("Board view initialized");
+        logger.fine("Board view initialized with coordinates");
     }
 
     /**
@@ -64,6 +63,36 @@ public class BoardView extends GridPane {
     }
 
     /**
+     * Adds row and column coordinate labels to the board.
+     */
+    private void addCoordinateLabels() {
+        // Create a corner cell (top-left)
+        Label cornerLabel = new Label("");
+        cornerLabel.setPrefSize(20, 20);
+        cornerLabel.setAlignment(Pos.CENTER);
+        cornerLabel.setStyle("-fx-background-color: #888888; -fx-text-fill: white;");
+        add(cornerLabel, 0, 0);
+
+        // Add column numbers (1-15) along top row
+        for (int col = 0; col < Board.SIZE; col++) {
+            Label colLabel = new Label(Integer.toString(col + 1));
+            colLabel.setPrefSize(GameConstants.SQUARE_SIZE, 20);
+            colLabel.setAlignment(Pos.CENTER);
+            colLabel.setStyle("-fx-background-color: #888888; -fx-text-fill: white; -fx-font-weight: bold;");
+            add(colLabel, col + 1, 0);
+        }
+
+        // Add row numbers (1-15) along left column
+        for (int row = 0; row < Board.SIZE; row++) {
+            Label rowLabel = new Label(Integer.toString(row + 1));
+            rowLabel.setPrefSize(20, GameConstants.SQUARE_SIZE);
+            rowLabel.setAlignment(Pos.CENTER);
+            rowLabel.setStyle("-fx-background-color: #888888; -fx-text-fill: white; -fx-font-weight: bold;");
+            add(rowLabel, 0, row + 1);
+        }
+    }
+
+    /**
      * Initializes all squares on the board view.
      */
     private void initializeSquares() {
@@ -74,7 +103,8 @@ public class BoardView extends GridPane {
                 Square square = board.getSquare(row, col);
                 SquareView squareView = new SquareView(square, row, col);
                 squareViews[row][col] = squareView;
-                add(squareView, col, row);
+                // Add to column+1, row+1 to account for coordinate labels
+                add(squareView, col + 1, row + 1);
             }
         }
     }
@@ -89,23 +119,7 @@ public class BoardView extends GridPane {
                 squareViews[row][col].update();
             }
         }
-
-
     }
-
-
-    /**
-     * Clears hint styling from all squares.
-     */
-    private void clearHintStyling() {
-        for (int row = 0; row < Board.SIZE; row++) {
-            for (int col = 0; col < Board.SIZE; col++) {
-                squareViews[row][col].setHintStyle(false, 0);
-            }
-        }
-    }
-
-
 
     /**
      * Visual representation of a single square on the board.
@@ -117,10 +131,7 @@ public class BoardView extends GridPane {
         private final Label letterLabel;
         private final Label valueLabel;
         private final Label premiumLabel;
-        private final Label hintLetterLabel;
         private boolean isTemporaryTile = false;
-        private boolean isHintTile = false;
-        private int hintColorIndex = 0;
 
         /**
          * Creates a view for a specific square on the board.
@@ -157,15 +168,8 @@ public class BoardView extends GridPane {
             premiumLabel.setFont(Font.font("Arial", 10));
             premiumLabel.setAlignment(Pos.CENTER);
 
-            // Add hint letter label
-            hintLetterLabel = new Label();
-            hintLetterLabel.setFont(Font.font("Arial", FontWeight.BOLD, 16));
-            hintLetterLabel.setAlignment(Pos.CENTER);
-            hintLetterLabel.setTextFill(Color.WHITE);
-            hintLetterLabel.setVisible(false);
-
             // Add the labels to the square view
-            getChildren().addAll(premiumLabel, letterLabel, valueLabel, hintLetterLabel);
+            getChildren().addAll(premiumLabel, letterLabel, valueLabel);
             setAlignment(Pos.CENTER);
 
             // Set up drag-and-drop functionality
@@ -173,63 +177,6 @@ public class BoardView extends GridPane {
 
             // Initialize the visual state
             update();
-        }
-
-        /**
-         * Sets whether this square shows a hint and with which color.
-         *
-         * @param isHint Whether this is a hint tile
-         * @param colorIndex The color index for the hint (0-4)
-         */
-        public void setHintStyle(boolean isHint, int colorIndex) {
-            this.isHintTile = isHint;
-            this.hintColorIndex = colorIndex;
-
-            if (isHint) {
-                // Different colors for different hints
-                Color[] hintColors = {
-                        Color.rgb(0, 150, 0, 0.6),    // Green
-                        Color.rgb(0, 0, 200, 0.6),     // Blue
-                        Color.rgb(200, 0, 0, 0.6),     // Red
-                        Color.rgb(200, 150, 0, 0.6),   // Orange
-                        Color.rgb(100, 0, 150, 0.6)    // Purple
-                };
-
-                Color hintColor = hintColors[colorIndex];
-
-                setBackground(new Background(new BackgroundFill(
-                        hintColor, CornerRadii.EMPTY, Insets.EMPTY)));
-
-                setBorder(new Border(new BorderStroke(
-                        Color.WHITE, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, new BorderWidths(2))));
-
-                setOpacity(0.8);
-                letterLabel.setOpacity(0.3);
-                premiumLabel.setOpacity(0.3);
-                valueLabel.setOpacity(0.3);
-            } else {
-                // Reset opacity if not a hint
-                setOpacity(1.0);
-                letterLabel.setOpacity(1.0);
-                premiumLabel.setOpacity(1.0);
-                valueLabel.setOpacity(1.0);
-                hintLetterLabel.setVisible(false);
-
-                // Update to restore original appearance
-                update();
-            }
-        }
-
-        /**
-         * Shows a hint letter on this square.
-         *
-         * @param letter The letter to show
-         */
-        public void showHintLetter(char letter) {
-            if (isHintTile) {
-                hintLetterLabel.setText(String.valueOf(letter));
-                hintLetterLabel.setVisible(true);
-            }
         }
 
         /**
@@ -252,11 +199,6 @@ public class BoardView extends GridPane {
                 updateWithPlacedTile();
             } else {
                 updateEmptySquare();
-            }
-
-            // If this is a hint tile, maintain hint appearance
-            if (isHintTile) {
-                setHintStyle(true, hintColorIndex);
             }
         }
 

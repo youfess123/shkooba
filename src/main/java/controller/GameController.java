@@ -21,7 +21,7 @@ public class GameController {
     private final Game game;
     private final MoveHandler moveHandler;
     private final TilePlacer tilePlacer;
-    private final List<ComputerPlayer> computerPlayers;
+    private final Map<Player, ComputerPlayer> computerPlayers;
     private final ExecutorService executor;
 
     private DictionaryService dictionaryService;
@@ -42,7 +42,7 @@ public class GameController {
         this.game = game;
         this.moveHandler = new MoveHandler(game);
         this.tilePlacer = new TilePlacer();
-        this.computerPlayers = new ArrayList<>();
+        this.computerPlayers = new HashMap<>();
         this.executor = Executors.newSingleThreadExecutor();
         this.gameInProgress = false;
         this.computerMoveInProgress = false;
@@ -55,12 +55,10 @@ public class GameController {
         for (Player player : game.getPlayers()) {
             if (player.isComputer()) {
                 // Use the difficulty from the game object
-                computerPlayers.add(new ComputerPlayer(player, game.getAiDifficulty()));
+                computerPlayers.put(player, new ComputerPlayer(player, game.getAiDifficulty()));
             }
         }
     }
-
-
 
     public void startGame() {
         game.start();
@@ -224,20 +222,24 @@ public class GameController {
         return success;
     }
 
-    // Improve the makeComputerMoveIfNeeded method to handle multiple AI turns if needed
+    // Fixed makeComputerMoveIfNeeded method to ensure all computer players get their turns
     public void makeComputerMoveIfNeeded() {
+        if (!gameInProgress || computerMoveInProgress) {
+            return;
+        }
+
         Player currentPlayer = game.getCurrentPlayer();
-        if (currentPlayer.isComputer() && !computerMoveInProgress && gameInProgress) {
-            logger.info("Computer's turn - preparing move");
+        if (currentPlayer.isComputer()) {
+            logger.info("Computer's turn - preparing move for " + currentPlayer.getName());
             computerMoveInProgress = true;
             updateCurrentPlayer();
 
-            ComputerPlayer computerPlayer = getComputerPlayerFor(currentPlayer);
+            ComputerPlayer computerPlayer = computerPlayers.get(currentPlayer);
             if (computerPlayer == null) {
-                logger.warning("Computer player not found");
+                logger.warning("Computer player not found for " + currentPlayer.getName());
                 Move passMove = Move.createPassMove(currentPlayer);
+                computerMoveInProgress = false; // Reset flag before making move
                 makeMove(passMove);
-                computerMoveInProgress = false;
                 return;
             }
 
@@ -249,33 +251,21 @@ public class GameController {
         }
     }
 
-
-    private ComputerPlayer getComputerPlayerFor(Player player) {
-        for (ComputerPlayer cp : computerPlayers) {
-            if (cp.getPlayer() == player) {
-                return cp;
-            }
-        }
-        return null;
-    }
-
     private ScheduledExecutorService setupEmergencyTimer(Player currentPlayer) {
         ScheduledExecutorService emergencyTimer = Executors.newSingleThreadScheduledExecutor();
         emergencyTimer.schedule(() -> {
             if (computerMoveInProgress) {
-                logger.warning("Computer move taking too long - forcing PASS");
+                logger.warning("Computer move taking too long - forcing PASS for " + currentPlayer.getName());
                 Platform.runLater(() -> {
                     Move passMove = Move.createPassMove(currentPlayer);
+                    computerMoveInProgress = false; // Reset flag before making move
                     makeMove(passMove);
-                    computerMoveInProgress = false;
                 });
             }
         }, 5, TimeUnit.SECONDS);
 
         return emergencyTimer;
     }
-
-    // In GameController.java
 
     private void executeComputerMove(ComputerPlayer computerPlayer, Player currentPlayer,
                                      ScheduledExecutorService emergencyTimer) {
@@ -289,30 +279,32 @@ public class GameController {
 
                 Platform.runLater(() -> {
                     try {
-                        // Use makeMove instead of directly calling game.executeMove
-                        // This ensures that if there are multiple AI players, they will play in sequence
+                        // IMPORTANT: Reset the computerMoveInProgress flag before making the move
+                        // This ensures the next computer player can take their turn
+                        computerMoveInProgress = false;
+
+                        // Make the move
                         boolean success = makeMove(computerMove);
 
                         if (!success) {
-                            logger.warning("Computer move failed, passing turn");
+                            logger.warning("Computer move failed for " + currentPlayer.getName() + ", passing turn");
                             Move passMove = Move.createPassMove(currentPlayer);
                             makeMove(passMove);
                         }
                     } catch (Exception e) {
-                        logger.severe("Error executing computer move: " + e.getMessage());
+                        logger.severe("Error executing computer move for " + currentPlayer.getName() + ": " + e.getMessage());
+                        computerMoveInProgress = false;
                         Move passMove = Move.createPassMove(currentPlayer);
                         makeMove(passMove);
-                    } finally {
-                        computerMoveInProgress = false;
                     }
                 });
             } catch (Exception e) {
-                logger.severe("Error in computer move: " + e.getMessage());
+                logger.severe("Error in computer move for " + currentPlayer.getName() + ": " + e.getMessage());
                 Platform.runLater(() -> {
                     emergencyTimer.shutdownNow();
+                    computerMoveInProgress = false;
                     Move passMove = Move.createPassMove(currentPlayer);
                     makeMove(passMove);
-                    computerMoveInProgress = false;
                 });
             }
         });
@@ -459,9 +451,6 @@ public class GameController {
     public void setGameOverListener(Runnable listener) {
         this.gameOverListener = listener;
     }
-
-    // Resource cleanup
-
 
     /**
      * Enables or disables the automatic display of word definitions.

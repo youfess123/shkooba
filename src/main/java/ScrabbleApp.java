@@ -11,9 +11,11 @@ import utilities.GameConstants;
 import view.GameView;
 import view.MainMenuView;
 import view.MainMenuView.MainMenuSettings;
+import view.MainMenuView.PlayerSettings;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -67,7 +69,7 @@ public class ScrabbleApp extends Application {
     private void startGameWithSettings(MainMenuSettings settings) {
         try {
             // Initialize game with selected settings
-            initGame(settings.getPlayerName(), settings.getDifficulty());
+            initGame(settings.getPlayers(), settings.getDifficulty());
 
             // Create controller and view
             gameController = new GameController(game);
@@ -83,7 +85,7 @@ public class ScrabbleApp extends Application {
             primaryStage.setScene(scene);
             gameController.startGame();
 
-            logger.info("Game started with difficulty level: " + settings.getDifficulty());
+            logger.info("Game started with " + settings.getPlayers().size() + " players and difficulty level: " + settings.getDifficulty());
 
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to start the game", e);
@@ -92,28 +94,30 @@ public class ScrabbleApp extends Application {
     }
 
     /**
-     * Initializes the game with the specified player name and AI difficulty.
+     * Initializes the game with multiple players and AI difficulty.
      *
-     * @param playerName The name of the human player
+     * @param playerSettings List of player settings from the menu
      * @param difficulty The AI difficulty level
      * @throws IOException If the dictionary cannot be loaded
      */
-    private void initGame(String playerName, int difficulty) throws IOException {
+    private void initGame(List<PlayerSettings> playerSettings, int difficulty) throws IOException {
         InputStream dictionaryStream = Dictionary.loadDefaultDictionary();
         game = new Game(dictionaryStream, "Dictionary");
 
-        // Add human player with specified name
-        game.addPlayer(new Player(playerName, false));
+        // Add all players
+        for (PlayerSettings settings : playerSettings) {
+            Player player = new Player(settings.getName(), settings.isComputer());
+            game.addPlayer(player);
 
-        // Add computer player with selected difficulty
-        Player computerPlayer = new Player("Computer", true);
-        game.addPlayer(computerPlayer);
+            logger.info("Added player: " + player.getName() +
+                    (player.isComputer() ? " (Computer)" : " (Human)"));
+        }
 
         // Store difficulty in game for controller to use later
         game.setAiDifficulty(difficulty);
 
-        logger.info("Game initialized with player: " + playerName +
-                " and AI difficulty: " + difficulty);
+        logger.info("Game initialized with " + playerSettings.size() +
+                " players and AI difficulty: " + difficulty);
     }
 
     private void showErrorAndExit(String message) {

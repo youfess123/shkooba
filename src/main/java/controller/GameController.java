@@ -54,7 +54,8 @@ public class GameController {
         // Initialize computer players
         for (Player player : game.getPlayers()) {
             if (player.isComputer()) {
-                computerPlayers.add(new ComputerPlayer(player, GameConstants.AI_EASY));
+                // Use the difficulty from the game object
+                computerPlayers.add(new ComputerPlayer(player, game.getAiDifficulty()));
             }
         }
     }

@@ -19,6 +19,7 @@ public class Game {
     private final List<Player> players;
     private final Dictionary dictionary;
     private int currentPlayerIndex;
+    private int aiDifficulty = GameConstants.AI_EASY;
     private boolean gameOver;
     private int consecutivePasses;
     private final List<Move> moveHistory;
@@ -42,6 +43,14 @@ public class Game {
 
         players.add(player);
         logger.info("Added player: " + player.getName());
+    }
+
+    public void setAiDifficulty(int difficulty) {
+        this.aiDifficulty = Math.max(1, Math.min(3, difficulty));
+    }
+
+    public int getAiDifficulty() {
+        return aiDifficulty;
     }
 
     public void start() {

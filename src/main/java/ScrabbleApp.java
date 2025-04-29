@@ -1,5 +1,3 @@
-
-
 import controller.GameController;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -9,8 +7,10 @@ import javafx.stage.Stage;
 import model.Dictionary;
 import model.Game;
 import model.Player;
-import model.Tile;
+import utilities.GameConstants;
 import view.GameView;
+import view.MainMenuView;
+import view.MainMenuView.MainMenuSettings;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,6 +22,7 @@ public class ScrabbleApp extends Application {
 
     private Game game;
     private GameController gameController;
+    private Stage primaryStage;
 
     public static void main(String[] args) {
         launch(args);
@@ -29,23 +30,60 @@ public class ScrabbleApp extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        this.primaryStage = primaryStage;
+
         try {
-            initGame();
-            gameController = new GameController(game);
-            GameView gameView = new GameView(gameController);
-
-            Scene scene = new Scene(gameView, 1024, 768);
-            scene.getStylesheets().add(getClass().getResource("/styles/style.css").toExternalForm());
-
-
             primaryStage.setTitle("Scrabble");
-            primaryStage.setScene(scene);
             primaryStage.setMinWidth(1200);
             primaryStage.setMinHeight(1000);
             primaryStage.setOnCloseRequest(e -> cleanupResources());
-            primaryStage.show();
 
+            showMainMenu();
+            primaryStage.show();
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Failed to start the application", e);
+            showErrorAndExit("Failed to start the application: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Shows the main menu screen.
+     */
+    private void showMainMenu() {
+        MainMenuView mainMenuView = new MainMenuView();
+        mainMenuView.setOnStartGame(this::startGameWithSettings);
+
+        Scene scene = new Scene(mainMenuView, 1024, 768);
+        scene.getStylesheets().add(getClass().getResource("/styles/style.css").toExternalForm());
+
+        primaryStage.setScene(scene);
+    }
+
+    /**
+     * Starts the game with the selected settings from the main menu.
+     *
+     * @param settings The game settings selected by the user
+     */
+    private void startGameWithSettings(MainMenuSettings settings) {
+        try {
+            // Initialize game with selected settings
+            initGame(settings.getPlayerName(), settings.getDifficulty());
+
+            // Create controller and view
+            gameController = new GameController(game);
+            GameView gameView = new GameView(gameController);
+
+            // Apply additional settings
+            gameController.setShowDefinitionsEnabled(settings.isShowDefinitions());
+
+            // Set up scene and start game
+            Scene scene = new Scene(gameView, 1024, 768);
+            scene.getStylesheets().add(getClass().getResource("/styles/style.css").toExternalForm());
+
+            primaryStage.setScene(scene);
             gameController.startGame();
+
+            logger.info("Game started with difficulty level: " + settings.getDifficulty());
 
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to start the game", e);
@@ -53,12 +91,29 @@ public class ScrabbleApp extends Application {
         }
     }
 
-    private void initGame() throws IOException {
+    /**
+     * Initializes the game with the specified player name and AI difficulty.
+     *
+     * @param playerName The name of the human player
+     * @param difficulty The AI difficulty level
+     * @throws IOException If the dictionary cannot be loaded
+     */
+    private void initGame(String playerName, int difficulty) throws IOException {
         InputStream dictionaryStream = Dictionary.loadDefaultDictionary();
         game = new Game(dictionaryStream, "Dictionary");
-        game.addPlayer(new Player("Player 1", false));
-        game.addPlayer(new Player("Computer", true));
-        logger.info("Game initialized with 2 players");
+
+        // Add human player with specified name
+        game.addPlayer(new Player(playerName, false));
+
+        // Add computer player with selected difficulty
+        Player computerPlayer = new Player("Computer", true);
+        game.addPlayer(computerPlayer);
+
+        // Store difficulty in game for controller to use later
+        game.setAiDifficulty(difficulty);
+
+        logger.info("Game initialized with player: " + playerName +
+                " and AI difficulty: " + difficulty);
     }
 
     private void showErrorAndExit(String message) {

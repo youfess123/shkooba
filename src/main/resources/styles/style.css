@@ -127,3 +127,45 @@
 .button:pressed {
     -fx-background-color: #3a5e99;
 }
+
+/* Main Menu styling */
+.main-menu {
+    -fx-background-color: linear-gradient(from 25% 25% to 100% 100%, #f0f0f0, #d8d8d8);
+}
+
+.main-menu-title {
+    -fx-font-size: 42px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #4a6ea9;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 10, 0, 0, 3);
+}
+
+.main-menu-panel {
+    -fx-background-color: white;
+    -fx-border-color: #cccccc;
+    -fx-border-radius: 10px;
+    -fx-background-radius: 10px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 10, 0, 0, 5);
+    -fx-padding: 30px;
+}
+
+.main-menu-button {
+    -fx-background-color: #4a6ea9;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-font-size: 16px;
+    -fx-padding: 10px 20px;
+    -fx-background-radius: 5px;
+}
+
+.main-menu-button:hover {
+    -fx-background-color: #5a7eb9;
+}
+
+.main-menu-button:pressed {
+    -fx-background-color: #3a5e99;
+}
+
+.radio-button:selected .radio {
+    -fx-background-color: #4a6ea9;
+}

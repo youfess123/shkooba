@@ -40,8 +40,8 @@ public class ScrabbleApp extends Application {
 
             primaryStage.setTitle("Scrabble");
             primaryStage.setScene(scene);
-            primaryStage.setMinWidth(800);
-            primaryStage.setMinHeight(600);
+            primaryStage.setMinWidth(1200);
+            primaryStage.setMinHeight(1000);
             primaryStage.setOnCloseRequest(e -> cleanupResources());
             primaryStage.show();
 

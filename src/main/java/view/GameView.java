@@ -10,6 +10,9 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import model.Player;
+import utilities.WordFinder;
+
+import java.util.List;
 
 /**
  * Main view class for the Scrabble game UI.
@@ -99,6 +102,15 @@ public class GameView extends BorderPane {
     }
 
     /**
+     * Cleans up resources when the view is closed.
+     */
+    public void cleanup() {
+        if (controlPanel != null) {
+            controlPanel.closeHintDialog();
+        }
+    }
+
+    /**
      * Control panel with buttons for game actions.
      */
     private class ControlPanel extends VBox {
@@ -107,14 +119,9 @@ public class GameView extends BorderPane {
         private final Button exchangeButton;
         private final Button passButton;
         private final Button wordHistoryButton;
-        private final Button toggleDefinitionsButton;
-        private boolean definitionsEnabled = true;
+        private final Button hintsButton; // Replace toggleDefinitionsButton with hintsButton
+        private HintDialog hintDialog;
 
-        /**
-         * Creates a new control panel with the specified controller.
-         *
-         * @param controller The game controller
-         */
         public ControlPanel(GameController controller) {
             setSpacing(10);
             setPadding(new Insets(10));
@@ -171,16 +178,20 @@ public class GameView extends BorderPane {
                 }
             });
 
-            // Add new buttons for word definitions feature
+            // Create word history button
             wordHistoryButton = new Button("Word History");
             wordHistoryButton.setOnAction(e -> controller.showWordHistory());
             wordHistoryButton.setTooltip(new Tooltip("View definitions of previously played words"));
 
-            toggleDefinitionsButton = new Button("Definitions: ON");
-            toggleDefinitionsButton.setOnAction(e -> toggleDefinitionsFeature(controller));
-            toggleDefinitionsButton.setTooltip(new Tooltip("Toggle automatic word definitions after moves"));
+            // Create hints button (replacing the definitions button)
+            hintsButton = new Button("Show Hints");
+            hintsButton.setOnAction(e -> showHints());
+            hintsButton.setTooltip(new Tooltip("Show possible word placements"));
 
-            // Create an HBox for the main game control buttons
+            // Initialize hint dialog
+            hintDialog = new HintDialog();
+
+            // Create button rows
             HBox gameControlsBox = new HBox(10);
             gameControlsBox.getChildren().addAll(playButton, cancelButton, exchangeButton, passButton);
             for (var node : gameControlsBox.getChildren()) {
@@ -188,9 +199,8 @@ public class GameView extends BorderPane {
                 ((Button) node).setMaxWidth(Double.MAX_VALUE);
             }
 
-            // Create an HBox for the educational feature buttons
             HBox educationalControlsBox = new HBox(10);
-            educationalControlsBox.getChildren().addAll(wordHistoryButton, toggleDefinitionsButton);
+            educationalControlsBox.getChildren().addAll(wordHistoryButton, hintsButton);
             for (var node : educationalControlsBox.getChildren()) {
                 HBox.setHgrow(node, Priority.ALWAYS);
                 ((Button) node).setMaxWidth(Double.MAX_VALUE);
@@ -208,27 +218,24 @@ public class GameView extends BorderPane {
             updateButtonStates();
         }
 
-        /**
-         * Toggles the word definitions feature on/off.
-         *
-         * @param controller The game controller
-         */
-        private void toggleDefinitionsFeature(GameController controller) {
-            definitionsEnabled = !definitionsEnabled;
-            controller.setShowDefinitionsEnabled(definitionsEnabled);
-
-            if (definitionsEnabled) {
-                toggleDefinitionsButton.setText("Definitions: ON");
-                showInfo("Word definitions will be shown after each move.");
+        private void showHints() {
+            List<WordFinder.WordPlacement> hints = controller.generateHints();
+            if (hints.isEmpty()) {
+                showInfo("No valid moves found with your current tiles.");
             } else {
-                toggleDefinitionsButton.setText("Definitions: OFF");
-                showInfo("Word definitions will not be shown automatically.");
+                hintDialog.showHints(hints);
             }
         }
 
         /**
-         * Updates the enabled/disabled state of buttons based on the current game state.
+         * Closes the hint dialog if it's open.
          */
+        public void closeHintDialog() {
+            if (hintDialog != null) {
+                hintDialog.close();
+            }
+        }
+
         public void updateButtonStates() {
             Player currentPlayer = controller.getCurrentPlayer();
             boolean isPlayerTurn = !currentPlayer.isComputer();
@@ -239,8 +246,7 @@ public class GameView extends BorderPane {
             cancelButton.setDisable(!isPlayerTurn || !hasTemporaryPlacements);
             exchangeButton.setDisable(!isPlayerTurn || hasTemporaryPlacements || !hasSelectedTiles);
             passButton.setDisable(!isPlayerTurn || hasTemporaryPlacements);
-
-            // Word history button is always enabled as long as there are moves
+            hintsButton.setDisable(!isPlayerTurn); // Only disabled if not player's turn
             wordHistoryButton.setDisable(controller.getMoveHistory().isEmpty());
         }
     }

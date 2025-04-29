@@ -5,6 +5,8 @@ import javafx.application.Platform;
 import model.*;
 import service.DictionaryService;
 import utilities.GameConstants;
+import utilities.WordFinder;
+import utilities.WordValidator;
 import view.WordDefinitionDialog;
 
 
@@ -119,9 +121,47 @@ public class GameController {
         }
     }
 
-    public void showDefinitionForWord(String word) {
-        if (showDefinitionsEnabled) {
-            definitionDialog.showDefinition(word);
+    /**
+     * Generates hint suggestions using the same logic that the computer player uses.
+     * @return A list of possible word placements sorted by score
+     */
+    public List<WordFinder.WordPlacement> generateHints() {
+        Player currentPlayer = game.getCurrentPlayer();
+        if (currentPlayer.isComputer() || computerMoveInProgress) {
+            return new ArrayList<>();
+        }
+
+        try {
+            // Create a WordFinder for current board state - same approach used by ComputerPlayer
+            WordFinder wordFinder = new WordFinder(game.getDictionary(), game.getBoard());
+
+            // Get all possible placements using the same code used by ComputerPlayer
+            List<WordFinder.WordPlacement> placements = wordFinder.findAllPlacements(currentPlayer.getRack());
+            logger.info("Found " + placements.size() + " possible placements for hints");
+
+            if (placements.isEmpty()) {
+                return new ArrayList<>();
+            }
+
+            // Sort by score (descending) - same sorting used by ComputerPlayer
+            placements.sort(Comparator.comparing(WordFinder.WordPlacement::getScore).reversed());
+
+            // Log top moves for debugging
+            int movesToLog = Math.min(3, placements.size());
+            for (int i = 0; i < movesToLog; i++) {
+                WordFinder.WordPlacement placement = placements.get(i);
+                logger.info(String.format("Potential hint %d: %d points - %s at (%d,%d) %s",
+                        i+1, placement.getScore(), placement.getWord(),
+                        placement.getRow() + 1, placement.getCol() + 1,
+                        placement.getDirection() == Move.Direction.HORIZONTAL ? "horizontal" : "vertical"));
+            }
+
+            // Limit to top N moves
+            int maxHints = Math.min(15, placements.size());
+            return placements.subList(0, maxHints);
+        } catch (Exception e) {
+            logger.severe("Error generating hints: " + e.getMessage());
+            return new ArrayList<>();
         }
     }
 

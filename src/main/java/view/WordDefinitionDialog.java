@@ -122,11 +122,7 @@ public class WordDefinitionDialog {
             return;
         }
 
-        // If only one word, use the single word display
-        if (words.size() == 1) {
-            showDefinition(words.get(0));
-            return;
-        }
+
 
         // Clear previous content
         definitionsBox.getChildren().clear();

@@ -4,13 +4,9 @@ import model.*;
 import utilities.GameConstants;
 import utilities.WordFinder;
 import utilities.WordFinder.WordPlacement;
-
 import java.util.*;
 import java.util.logging.Logger;
 
-/**
- * AI player that utilizes GADDAG for efficient move generation.
- */
 public class ComputerPlayer {
     private static final Logger logger = Logger.getLogger(ComputerPlayer.class.getName());
 
@@ -18,12 +14,6 @@ public class ComputerPlayer {
     private final Random random;
     private final int difficultyLevel;
 
-    /**
-     * Creates a new computer player.
-     *
-     * @param player The player model
-     * @param difficultyLevel The difficulty level (1-3)
-     */
     public ComputerPlayer(Player player, int difficultyLevel) {
         this.player = player;
         this.random = new Random();
@@ -35,12 +25,6 @@ public class ComputerPlayer {
         return player;
     }
 
-    /**
-     * Generates a move for the computer player.
-     *
-     * @param game The current game state
-     * @return The move to execute
-     */
     public Move generateMove(Game game) {
         logger.info("Computer player generating move at difficulty " + difficultyLevel);
 
@@ -61,13 +45,11 @@ public class ComputerPlayer {
                 return generateFallbackMove(game);
             }
 
-            // Convert to moves
             List<Move> possibleMoves = new ArrayList<>();
             for (WordPlacement placement : placements) {
                 possibleMoves.add(placement.toMove(player));
             }
 
-            // Sort by score (descending)
             possibleMoves.sort(Comparator.comparing(Move::getScore).reversed());
 
             // Log top moves for debugging
@@ -90,9 +72,7 @@ public class ComputerPlayer {
         }
     }
 
-    /**
-     * Selects a move based on difficulty level.
-     */
+
     private Move selectMoveByDifficulty(List<Move> possibleMoves) {
         if (possibleMoves.isEmpty()) {
             throw new IllegalArgumentException("No possible moves to select from");
@@ -124,9 +104,6 @@ public class ComputerPlayer {
         }
     }
 
-    /**
-     * Generates a fallback move when no word placements are found.
-     */
     private Move generateFallbackMove(Game game) {
         // Try to exchange tiles if there are enough in the bag
         if (game.getTileBag().getTileCount() >= 7) {
@@ -144,9 +121,6 @@ public class ComputerPlayer {
         return Move.createPassMove(player);
     }
 
-    /**
-     * Selects tiles to exchange based on optimal strategy.
-     */
     private List<Tile> selectTilesToExchange() {
         Rack rack = player.getRack();
         List<Tile> availableTiles = new ArrayList<>(rack.getTiles());
@@ -213,9 +187,6 @@ public class ComputerPlayer {
         return tilesToExchange;
     }
 
-    /**
-     * Determines how many tiles to exchange based on difficulty.
-     */
     private int determineExchangeCount() {
         return switch (difficultyLevel) {
             case GameConstants.AI_EASY -> 4;    // Easy - exchange more tiles
@@ -225,9 +196,6 @@ public class ComputerPlayer {
         };
     }
 
-    /**
-     * Checks if a letter is a vowel.
-     */
     private boolean isVowel(char letter) {
         letter = Character.toUpperCase(letter);
         return letter == 'A' || letter == 'E' || letter == 'I' || letter == 'O' || letter == 'U';

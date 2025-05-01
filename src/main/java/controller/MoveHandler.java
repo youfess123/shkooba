@@ -2,7 +2,6 @@ package controller;
 
 import model.*;
 import utilities.GameConstants;
-
 import java.awt.Point;
 import java.util.*;
 import java.util.logging.Logger;
@@ -22,7 +21,6 @@ public class MoveHandler {
 
     public boolean placeTileTemporarily(int rackIndex, int row, int col) {
         try {
-            // Basic validation
             if (row < 0 || row >= Board.SIZE || col < 0 || col >= Board.SIZE) {
                 return false;
             }

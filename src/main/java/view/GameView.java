@@ -68,51 +68,18 @@ public class GameView extends BorderPane {
             rackView.updateRack();
             controlPanel.updateButtonStates();
         });
-        controller.setGameOverListener(this::showGameOverDialog);
+        controller.setGameOverListener(this::showEndGameView);
 
         // Add this line to update button states when temporary placements change
         controller.setTemporaryPlacementListener(() -> controlPanel.updateButtonStates());
     }
 
-    /**
-     * Shows the game over dialog with final scores.
-     */
-    private void showGameOverDialog() {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Game Over");
-        alert.setHeaderText("The game has ended!");
-
-        StringBuilder content = new StringBuilder("Final scores:\n");
-        int highestScore = -1;
-        String winner = "";
-
-        for (Player player : controller.getPlayers()) {
-            int score = player.getScore();
-            content.append(player.getName()).append(": ").append(score).append("\n");
-
-            if (score > highestScore) {
-                highestScore = score;
-                winner = player.getName();
-            }
-        }
-
-        content.append("\nWinner: ").append(winner).append("!");
-        alert.setContentText(content.toString());
-        alert.showAndWait();
-    }
-
-    /**
-     * Cleans up resources when the view is closed.
-     */
     public void cleanup() {
         if (controlPanel != null) {
             controlPanel.closeHintDialog();
         }
     }
 
-    /**
-     * Control panel with buttons for game actions.
-     */
     private class ControlPanel extends VBox {
         private final Button playButton;
         private final Button cancelButton;
@@ -120,7 +87,7 @@ public class GameView extends BorderPane {
         private final Button passButton;
         private final Button wordHistoryButton;
         private final Button hintsButton; // Replace toggleDefinitionsButton with hintsButton
-        private HintDialog hintDialog;
+        private HintView hintView;
 
         public ControlPanel(GameController controller) {
             setSpacing(10);
@@ -189,7 +156,7 @@ public class GameView extends BorderPane {
             hintsButton.setTooltip(new Tooltip("Show possible word placements"));
 
             // Initialize hint dialog
-            hintDialog = new HintDialog();
+            hintView = new HintView();
 
             // Create button rows
             HBox gameControlsBox = new HBox(10);
@@ -223,7 +190,7 @@ public class GameView extends BorderPane {
             if (hints.isEmpty()) {
                 showInfo("No valid moves found with your current tiles.");
             } else {
-                hintDialog.showHints(hints);
+                hintView.showHints(hints);
             }
         }
 
@@ -231,8 +198,8 @@ public class GameView extends BorderPane {
          * Closes the hint dialog if it's open.
          */
         public void closeHintDialog() {
-            if (hintDialog != null) {
-                hintDialog.close();
+            if (hintView != null) {
+                hintView.close();
             }
         }
 
@@ -264,11 +231,11 @@ public class GameView extends BorderPane {
         alert.showAndWait();
     }
 
-    /**
-     * Shows an error dialog.
-     *
-     * @param message The error message to display
-     */
+    private void showEndGameView() {
+        EndGameView endGameView = new EndGameView(controller.getPlayers());
+        endGameView.show();
+    }
+
     private void showError(String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle("Error");

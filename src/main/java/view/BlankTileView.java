@@ -11,7 +11,7 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
-public class BlankTileDialog {
+public class BlankTileView {
     private char selectedLetter = '\0';
 
     public char showAndWait() {

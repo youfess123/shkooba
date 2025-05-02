@@ -47,6 +47,9 @@ public class Tile {
         if (this == obj) return true;
         if (obj == null || getClass() != obj.getClass()) return false;
         Tile other = (Tile) obj;
+        if (isBlank && other.isBlank) {
+            return true;
+        }
         return letter == other.letter && value == other.value && isBlank == other.isBlank;
     }
 

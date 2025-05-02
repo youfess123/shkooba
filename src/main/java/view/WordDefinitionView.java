@@ -27,7 +27,7 @@ import java.util.concurrent.CompletableFuture;
  * Dialog to display word definitions after a player makes a move
  * or when looking up definitions from word history.
  */
-public class WordDefinitionDialog {
+public class WordDefinitionView {
     private final Stage dialog;
     private final DictionaryService dictionaryService;
 
@@ -37,12 +37,7 @@ public class WordDefinitionDialog {
     private final Button closeButton;
     private final Label loadingLabel;
 
-    /**
-     * Creates a new word definition dialog.
-     *
-     * @param dictionaryService The dictionary service to use for looking up words
-     */
-    public WordDefinitionDialog(DictionaryService dictionaryService) {
+    public WordDefinitionView(DictionaryService dictionaryService) {
         this.dictionaryService = dictionaryService;
 
         dialog = new Stage();
@@ -92,11 +87,6 @@ public class WordDefinitionDialog {
         dialog.setScene(scene);
     }
 
-    /**
-     * Shows the dialog with definitions for a single word.
-     *
-     * @param word The word to show definitions for
-     */
     public void showDefinition(String word) {
         // Clear previous content
         definitionsBox.getChildren().clear();
@@ -112,11 +102,6 @@ public class WordDefinitionDialog {
         dialog.setOnShown(e -> loadDefinition(word));
     }
 
-    /**
-     * Shows the dialog with definitions for multiple words.
-     *
-     * @param words The list of words to show definitions for
-     */
     public void showDefinitions(List<String> words) {
         if (words.isEmpty()) {
             return;

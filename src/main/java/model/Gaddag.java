@@ -119,7 +119,6 @@ public class Gaddag {
             return false;
         }
 
-        // Create a temporary board for validation
         Board tempBoard = new Board();
         for (int r = 0; r < Board.SIZE; r++) {
             for (int c = 0; c < Board.SIZE; c++) {
@@ -138,6 +137,7 @@ public class Gaddag {
 
         int currentRow = row;
         int currentCol = col;
+
         for (Tile tile : move.getTiles()) {
             // Skip over existing tiles
             while (currentRow < Board.SIZE && currentCol < Board.SIZE &&
@@ -176,24 +176,17 @@ public class Gaddag {
                 return false;
             }
         }
-
-        // Validate all formed words
         List<String> formedWords = validateWords(tempBoard, move, newTilePositions);
-        return !formedWords.isEmpty();
+
+        if (formedWords.isEmpty()) {
+            return false;
+        }
+        return true;
     }
 
-    /**
-     * Validates all words formed by a move.
-     *
-     * @param board The board with the move applied
-     * @param move The move being validated
-     * @param newTilePositions The positions of newly placed tiles
-     * @return List of formed words, empty if invalid
-     */
     public List<String> validateWords(Board board, Move move, List<Point> newTilePositions) {
         List<String> formedWords = new ArrayList<>();
 
-        // Find the main word
         String mainWord = findMainWord(board, move);
 
         if (mainWord.length() < 2 || !contains(mainWord)) {

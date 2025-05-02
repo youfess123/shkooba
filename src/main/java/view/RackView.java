@@ -1,7 +1,6 @@
 package view;
 
 import controller.GameController;
-import controller.TilePlacer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
@@ -119,7 +118,7 @@ public class RackView extends HBox {
             setOnMouseClicked(event -> {
                 if (tile.isBlank() && tile.getLetter() == '*') {
                     // If it's an unused blank tile, show letter selection dialog
-                    BlankTileDialog dialog = new BlankTileDialog();
+                    BlankTileView dialog = new BlankTileView();
                     char selectedLetter = dialog.showAndWait();
                     if (selectedLetter != '\0') {
                         controller.setBlankTileLetter(index, selectedLetter);
@@ -137,7 +136,7 @@ public class RackView extends HBox {
                 if (controller.isTileSelected(index)) {
                     // For blank tiles without assigned letter, prompt for one
                     if (tile.isBlank() && tile.getLetter() == '*') {
-                        BlankTileDialog dialog = new BlankTileDialog();
+                        BlankTileView dialog = new BlankTileView();
                         char selectedLetter = dialog.showAndWait();
                         if (selectedLetter != '\0') {
                             controller.setBlankTileLetter(index, selectedLetter);

@@ -25,6 +25,7 @@ public class ComputerPlayer {
         return player;
     }
 
+    // Main move generation
     public Move generateMove(Game game) {
         logger.info("Computer player generating move at difficulty " + difficultyLevel);
 
@@ -34,10 +35,7 @@ public class ComputerPlayer {
         }
 
         try {
-            // Create a new WordFinder for current board state
             WordFinder wordFinder = new WordFinder(game.getDictionary(), game.getBoard());
-
-            // Get all possible placements
             List<WordPlacement> placements = wordFinder.findAllPlacements(player.getRack());
             logger.info("Found " + placements.size() + " possible placements");
 
@@ -52,7 +50,6 @@ public class ComputerPlayer {
 
             possibleMoves.sort(Comparator.comparing(Move::getScore).reversed());
 
-            // Log top moves for debugging
             int movsToLog = Math.min(3, possibleMoves.size());
             for (int i = 0; i < movsToLog; i++) {
                 Move move = possibleMoves.get(i);
@@ -61,7 +58,6 @@ public class ComputerPlayer {
                         move.getFormedWords().isEmpty() ? "No words" : String.join(", ", move.getFormedWords())));
             }
 
-            // Select based on difficulty
             Move selectedMove = selectMoveByDifficulty(possibleMoves);
             logger.info("Computer selected move with score: " + selectedMove.getScore());
 
@@ -72,7 +68,6 @@ public class ComputerPlayer {
         }
     }
 
-
     private Move selectMoveByDifficulty(List<Move> possibleMoves) {
         if (possibleMoves.isEmpty()) {
             throw new IllegalArgumentException("No possible moves to select from");
@@ -80,9 +75,7 @@ public class ComputerPlayer {
 
         switch (difficultyLevel) {
             case GameConstants.AI_EASY:
-                // Easy - pick somewhat randomly, biased toward easier moves
                 if (possibleMoves.size() > 2 && random.nextDouble() < 0.7) {
-                    // 70% chance to pick from bottom half
                     int startIdx = possibleMoves.size() / 2;
                     return possibleMoves.get(startIdx + random.nextInt(possibleMoves.size() - startIdx));
                 } else {
@@ -90,22 +83,20 @@ public class ComputerPlayer {
                 }
 
             case GameConstants.AI_MEDIUM:
-                // Medium - pick from top 60% of moves
                 int mediumCutoff = Math.max(1, (int)(possibleMoves.size() * 0.6));
                 return possibleMoves.get(random.nextInt(mediumCutoff));
 
             case GameConstants.AI_HARD:
-                // Hard - pick from top 3 moves
                 int hardCutoff = Math.min(3, possibleMoves.size());
                 return possibleMoves.get(random.nextInt(hardCutoff));
 
             default:
-                return possibleMoves.get(0); // Default to best move
+                return possibleMoves.get(0);
         }
     }
 
+    // Fallback move generation when no word placements are possible
     private Move generateFallbackMove(Game game) {
-        // Try to exchange tiles if there are enough in the bag
         if (game.getTileBag().getTileCount() >= 7) {
             logger.info("Computer: Generating exchange move");
             List<Tile> tilesToExchange = selectTilesToExchange();
@@ -116,7 +107,6 @@ public class ComputerPlayer {
             }
         }
 
-        // If exchange isn't possible, pass
         logger.info("Computer: Generating pass move");
         return Move.createPassMove(player);
     }
@@ -126,12 +116,10 @@ public class ComputerPlayer {
         List<Tile> availableTiles = new ArrayList<>(rack.getTiles());
         List<Tile> tilesToExchange = new ArrayList<>();
 
-        // Score each tile based on usefulness
         Map<Tile, Integer> tileScores = new HashMap<>();
         Map<Character, Integer> letterCounts = new HashMap<>();
         int vowelCount = 0;
 
-        // Count letters and vowels
         for (Tile tile : availableTiles) {
             char letter = tile.getLetter();
             letterCounts.put(letter, letterCounts.getOrDefault(letter, 0) + 1);
@@ -141,37 +129,28 @@ public class ComputerPlayer {
             }
         }
 
-        // Score each tile
         for (Tile tile : availableTiles) {
             char letter = tile.getLetter();
             int score = 0;
 
-            // High value tiles are harder to place
             if (tile.getValue() >= 8) score -= 10;
             else if (tile.getValue() >= 4) score -= 5;
 
-            // Too many duplicates of consonants is bad
             if (!isVowel(letter) && letterCounts.get(letter) > 2) score -= 8;
 
-            // Balance vowels
             if (isVowel(letter)) {
-                if (vowelCount <= 2) score += 10; // Keep vowels if few
-                else if (vowelCount > 3) score -= 5; // Exchange if too many
+                if (vowelCount <= 2) score += 10;
+                else if (vowelCount > 3) score -= 5;
             }
 
-            // Hard to use letters
             if (letter == 'Q' || letter == 'Z' || letter == 'X' || letter == 'J') score -= 7;
 
             tileScores.put(tile, score);
         }
 
-        // Sort tiles by score (ascending = worse first)
         availableTiles.sort(Comparator.comparing(tile -> tileScores.getOrDefault(tile, 0)));
-
-        // Determine how many to exchange
         int numToExchange = determineExchangeCount();
 
-        // Take the lowest scoring tiles
         for (int i = 0; i < numToExchange && i < availableTiles.size(); i++) {
             int score = tileScores.getOrDefault(availableTiles.get(i), 0);
             if (score < 0) {
@@ -179,7 +158,6 @@ public class ComputerPlayer {
             }
         }
 
-        // Always exchange at least one tile if possible
         if (tilesToExchange.isEmpty() && !availableTiles.isEmpty()) {
             tilesToExchange.add(availableTiles.get(0));
         }
@@ -189,13 +167,14 @@ public class ComputerPlayer {
 
     private int determineExchangeCount() {
         return switch (difficultyLevel) {
-            case GameConstants.AI_EASY -> 4;    // Easy - exchange more tiles
-            case GameConstants.AI_MEDIUM -> 3;  // Medium
-            case GameConstants.AI_HARD -> 2;    // Hard - exchange fewer tiles
+            case GameConstants.AI_EASY -> 4;
+            case GameConstants.AI_MEDIUM -> 3;
+            case GameConstants.AI_HARD -> 2;
             default -> 3;
         };
     }
 
+    // Utility methods
     private boolean isVowel(char letter) {
         letter = Character.toUpperCase(letter);
         return letter == 'A' || letter == 'E' || letter == 'I' || letter == 'O' || letter == 'U';

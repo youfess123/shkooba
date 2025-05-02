@@ -1,11 +1,10 @@
 package controller;
 
-
 import javafx.application.Platform;
 import model.*;
 import service.DictionaryService;
 import utilities.WordFinder;
-import view.WordDefinitionDialog;
+import view.WordDefinitionView;
 import java.awt.Point;
 import java.util.*;
 import java.util.concurrent.*;
@@ -21,7 +20,7 @@ public class GameController {
     private final ExecutorService executor;
 
     private DictionaryService dictionaryService;
-    private WordDefinitionDialog definitionDialog;
+    private WordDefinitionView definitionDialog;
     private boolean showDefinitionsEnabled = true;
 
     private boolean gameInProgress;
@@ -33,6 +32,7 @@ public class GameController {
     private Runnable gameOverListener;
     private Runnable temporaryPlacementListener;
 
+    // Initialisation and lifecycle
     public GameController(Game game) {
         this.game = game;
         this.moveHandler = new MoveHandler(game);
@@ -43,7 +43,7 @@ public class GameController {
         this.computerMoveInProgress = false;
 
         this.dictionaryService = new DictionaryService();
-        this.definitionDialog = new WordDefinitionDialog(dictionaryService);
+        this.definitionDialog = new WordDefinitionView(dictionaryService);
 
         for (Player player : game.getPlayers()) {
             if (player.isComputer()) {
@@ -61,6 +61,23 @@ public class GameController {
         makeComputerMoveIfNeeded();
     }
 
+    public void shutdown() {
+        if (definitionDialog != null) {
+            definitionDialog.close();
+        }
+
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    // Move execution
     public boolean makeMove(Move move) {
         if (!gameInProgress) {
             return false;
@@ -91,67 +108,6 @@ public class GameController {
         }
 
         return success;
-    }
-
-    private void showDefinitionsForMove(Move move) {
-        List<String> words = move.getFormedWords();
-        if (words != null && !words.isEmpty()) {
-            definitionDialog.showDefinitions(words);
-        }
-    }
-
-    public List<WordFinder.WordPlacement> generateHints() {
-        Player currentPlayer = game.getCurrentPlayer();
-        if (currentPlayer.isComputer() || computerMoveInProgress) {
-            return new ArrayList<>();
-        }
-
-        try {
-            // Create a WordFinder for current board state
-            WordFinder wordFinder = new WordFinder(game.getDictionary(), game.getBoard());
-
-            List<WordFinder.WordPlacement> placements = wordFinder.findAllPlacements(currentPlayer.getRack());
-            logger.info("Found " + placements.size() + " possible placements for hints");
-
-            if (placements.isEmpty()) {
-                return new ArrayList<>();
-            }
-
-            placements.sort(Comparator.comparing(WordFinder.WordPlacement::getScore).reversed());
-
-            int movesToLog = Math.min(3, placements.size());
-            for (int i = 0; i < movesToLog; i++) {
-                WordFinder.WordPlacement placement = placements.get(i);
-                logger.info(String.format("Potential hint %d: %d points - %s at (%d,%d) %s",
-                        i+1, placement.getScore(), placement.getWord(),
-                        placement.getRow() + 1, placement.getCol() + 1,
-                        placement.getDirection() == Move.Direction.HORIZONTAL ? "horizontal" : "vertical"));
-            }
-
-            // Limit to top N moves
-            int maxHints = Math.min(15, placements.size());
-            return placements.subList(0, maxHints);
-        } catch (Exception e) {
-            logger.severe("Error generating hints: " + e.getMessage());
-            return new ArrayList<>();
-        }
-    }
-
-    public void showWordHistory() {
-        List<String> playedWords = new ArrayList<>();
-
-        // collect words from move history
-        for (Move move : game.getMoveHistory()) {
-            if (move.getType() == Move.Type.PLACE) {
-                playedWords.addAll(move.getFormedWords());
-            }
-        }
-        //no duplicates
-        List<String> uniqueWords = new ArrayList<>(new HashSet<>(playedWords));
-        Collections.sort(uniqueWords);
-        if (!uniqueWords.isEmpty()) {
-            definitionDialog.showDefinitions(uniqueWords);
-        }
     }
 
     public boolean commitPlacement() {
@@ -189,6 +145,7 @@ public class GameController {
         return success;
     }
 
+    // Computer player handling
     public void makeComputerMoveIfNeeded() {
         if (!gameInProgress || computerMoveInProgress) {
             return;
@@ -204,13 +161,12 @@ public class GameController {
             if (computerPlayer == null) {
                 logger.warning("Computer player not found for " + currentPlayer.getName());
                 Move passMove = Move.createPassMove(currentPlayer);
-                computerMoveInProgress = false; // Reset flag before making move
+                computerMoveInProgress = false;
                 makeMove(passMove);
                 return;
             }
 
             ScheduledExecutorService emergencyTimer = setupEmergencyTimer(currentPlayer);
-
             executeComputerMove(computerPlayer, currentPlayer, emergencyTimer);
         }
     }
@@ -222,7 +178,7 @@ public class GameController {
                 logger.warning("Computer move taking too long - forcing PASS for " + currentPlayer.getName());
                 Platform.runLater(() -> {
                     Move passMove = Move.createPassMove(currentPlayer);
-                    computerMoveInProgress = false; // Reset flag before making move
+                    computerMoveInProgress = false;
                     makeMove(passMove);
                 });
             }
@@ -236,15 +192,13 @@ public class GameController {
         executor.submit(() -> {
             try {
                 Move computerMove = computerPlayer.generateMove(game);
-                Thread.sleep(1000); // Small delay for better UX
+                Thread.sleep(1000);
 
-                // Cancel the emergency timeout
                 emergencyTimer.shutdownNow();
 
                 Platform.runLater(() -> {
                     try {
                         computerMoveInProgress = false;
-
                         boolean success = makeMove(computerMove);
 
                         if (!success) {
@@ -271,10 +225,7 @@ public class GameController {
         });
     }
 
-    public void setTemporaryPlacementListener(Runnable listener) {
-        this.temporaryPlacementListener = listener;
-    }
-
+    // Tile placement and selection
     public boolean placeTileTemporarily(int rackIndex, int row, int col) {
         boolean success = moveHandler.placeTileTemporarily(rackIndex, row, col);
         if (success) {
@@ -317,6 +268,109 @@ public class GameController {
         updateRack();
     }
 
+    // Educational features
+    public List<WordFinder.WordPlacement> generateHints() {
+        Player currentPlayer = game.getCurrentPlayer();
+        if (currentPlayer.isComputer() || computerMoveInProgress) {
+            return new ArrayList<>();
+        }
+
+        try {
+            WordFinder wordFinder = new WordFinder(game.getDictionary(), game.getBoard());
+            List<WordFinder.WordPlacement> placements = wordFinder.findAllPlacements(currentPlayer.getRack());
+            logger.info("Found " + placements.size() + " possible placements for hints");
+
+            if (placements.isEmpty()) {
+                return new ArrayList<>();
+            }
+
+            placements.sort(Comparator.comparing(WordFinder.WordPlacement::getScore).reversed());
+
+            int movesToLog = Math.min(3, placements.size());
+            for (int i = 0; i < movesToLog; i++) {
+                WordFinder.WordPlacement placement = placements.get(i);
+                logger.info(String.format("Potential hint %d: %d points - %s at (%d,%d) %s",
+                        i+1, placement.getScore(), placement.getWord(),
+                        placement.getRow() + 1, placement.getCol() + 1,
+                        placement.getDirection() == Move.Direction.HORIZONTAL ? "horizontal" : "vertical"));
+            }
+
+            int maxHints = Math.min(15, placements.size());
+            return placements.subList(0, maxHints);
+        } catch (Exception e) {
+            logger.severe("Error generating hints: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    public void showWordHistory() {
+        List<String> playedWords = new ArrayList<>();
+
+        for (Move move : game.getMoveHistory()) {
+            if (move.getType() == Move.Type.PLACE) {
+                playedWords.addAll(move.getFormedWords());
+            }
+        }
+
+        List<String> uniqueWords = new ArrayList<>(new HashSet<>(playedWords));
+        Collections.sort(uniqueWords);
+        if (!uniqueWords.isEmpty()) {
+            definitionDialog.showDefinitions(uniqueWords);
+        }
+    }
+
+    private void showDefinitionsForMove(Move move) {
+        List<String> words = move.getFormedWords();
+        if (words != null && !words.isEmpty()) {
+            definitionDialog.showDefinitions(words);
+        }
+    }
+
+    public void setShowDefinitionsEnabled(boolean enabled) {
+        this.showDefinitionsEnabled = enabled;
+    }
+
+    // UI update methods
+    private void updateBoard() {
+        if (boardUpdateListener != null) {
+            Platform.runLater(boardUpdateListener);
+        }
+    }
+
+    private void updateRack() {
+        if (rackUpdateListener != null) {
+            Platform.runLater(rackUpdateListener);
+        }
+    }
+
+    private void updateCurrentPlayer() {
+        if (playerUpdateListener != null) {
+            Platform.runLater(playerUpdateListener);
+        }
+    }
+
+    // Listener setters
+    public void setBoardUpdateListener(Runnable listener) {
+        this.boardUpdateListener = listener;
+    }
+
+    public void setRackUpdateListener(Runnable listener) {
+        this.rackUpdateListener = listener;
+    }
+
+    public void setPlayerUpdateListener(Runnable listener) {
+        this.playerUpdateListener = listener;
+    }
+
+    public void setGameOverListener(Runnable listener) {
+        this.gameOverListener = listener;
+    }
+
+    public void setTemporaryPlacementListener(Runnable listener) {
+        this.temporaryPlacementListener = listener;
+    }
+
+    // Game state accessors
     public Board getBoard() {
         return game.getBoard();
     }
@@ -363,59 +417,5 @@ public class GameController {
 
     public List<Tile> getSelectedTiles() {
         return tilePlacer.getSelectedTiles();
-    }
-
-    private void updateBoard() {
-        if (boardUpdateListener != null) {
-            Platform.runLater(boardUpdateListener);
-        }
-    }
-
-    private void updateRack() {
-        if (rackUpdateListener != null) {
-            Platform.runLater(rackUpdateListener);
-        }
-    }
-
-    private void updateCurrentPlayer() {
-        if (playerUpdateListener != null) {
-            Platform.runLater(playerUpdateListener);
-        }
-    }
-
-    public void setBoardUpdateListener(Runnable listener) {
-        this.boardUpdateListener = listener;
-    }
-
-    public void setRackUpdateListener(Runnable listener) {
-        this.rackUpdateListener = listener;
-    }
-
-    public void setPlayerUpdateListener(Runnable listener) {
-        this.playerUpdateListener = listener;
-    }
-
-    public void setGameOverListener(Runnable listener) {
-        this.gameOverListener = listener;
-    }
-
-    public void setShowDefinitionsEnabled(boolean enabled) {
-        this.showDefinitionsEnabled = enabled;
-    }
-
-    public void shutdown() {
-        if (definitionDialog != null) {
-            definitionDialog.close();
-        }
-
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
-                executor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executor.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
     }
 }

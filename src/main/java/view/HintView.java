@@ -15,7 +15,7 @@ import utilities.WordFinder.WordPlacement;
 
 import java.util.List;
 
-public class HintDialog {
+public class HintView {
     private final Stage dialog;
     private final TableView<HintRow> hintsTable;
 
@@ -38,7 +38,7 @@ public class HintDialog {
         public Integer getScore() { return score; }
     }
 
-    public HintDialog() {
+    public HintView() {
         dialog = new Stage();
         dialog.initModality(Modality.APPLICATION_MODAL);
         dialog.initStyle(StageStyle.UTILITY);

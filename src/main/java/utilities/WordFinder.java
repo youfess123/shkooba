@@ -7,9 +7,6 @@ import java.awt.Point;
 import java.util.*;
 import java.util.logging.Logger;
 
-/**
- * Utility class for finding possible word placements on a Scrabble board using GADDAG.
- */
 public class WordFinder {
     private static final Logger logger = Logger.getLogger(WordFinder.class.getName());
 
@@ -21,9 +18,6 @@ public class WordFinder {
         this.board = board;
     }
 
-    /**
-     * Represents a word placement on the board.
-     */
     public static class WordPlacement {
         private final String word;
         private final int row;
@@ -72,11 +66,6 @@ public class WordFinder {
         }
     }
 
-    /**
-     * Finds all possible word placements for a rack.
-     * @param rack The player's rack
-     * @return A list of possible placements
-     */
     public List<WordPlacement> findAllPlacements(Rack rack) {
         List<WordPlacement> placements = new ArrayList<>();
         String rackLetters = getAvailableLetters(rack);
@@ -170,8 +159,7 @@ public class WordFinder {
 
                 // Check if this empty square is ACTUALLY adjacent to any tiles
                 if (hasAdjacentTile(row, col)) {
-                    // Add debugging to verify the anchor point
-                    logger.info("Found valid anchor point at (" + row + "," + col + ")");
+//                    logger.info("Found valid anchor point at (" + row + "," + col + ")");
                     anchors.add(new Point(row, col));
                 }
             }
@@ -180,10 +168,6 @@ public class WordFinder {
         return anchors;
     }
 
-
-    /**
-     * Finds word placements at an anchor point in a specific direction.
-     */
     private void findPlacements(int row, int col, Move.Direction direction,
                                 String prefix, String suffix,
                                 String rackLetters, List<Tile> rackTiles,
@@ -289,17 +273,10 @@ public class WordFinder {
         return true;
     }
 
-    /**
-     * Creates a test move for validation and scoring.
-     */
     private Move createTestMove(Move.Direction direction, int startRow, int startCol) {
         return Move.createPlaceMove(new Player("temp"), startRow, startCol, direction);
     }
 
-    /**
-     * Places tiles on a temporary board for testing.
-     * @return List of tiles needed from rack, or null if not possible
-     */
     private List<Tile> placeTilesOnTempBoard(String word, Move.Direction direction,
                                              int startRow, int startCol, List<Tile> rackTiles,
                                              Board tempBoard, List<Point> newPositions) {
@@ -333,11 +310,17 @@ public class WordFinder {
                 // Remove from available tiles
                 availableTiles.remove(tileToUse);
 
-                // Add to tiles needed
-                tilesNeeded.add(tileToUse);
+                // If it's a blank tile, create a new blank tile with the assigned letter
+                if (tileToUse.isBlank() && tileToUse.getLetter() == '*') {
+                    Tile blankWithLetter = Tile.createBlankTile(letter);
+                    tilesNeeded.add(blankWithLetter); // Use the assigned letter tile in the move
+                    tempBoard.placeTile(row, col, blankWithLetter);
+                } else {
+                    // Regular tile
+                    tilesNeeded.add(tileToUse);
+                    tempBoard.placeTile(row, col, tileToUse);
+                }
 
-                // Place on temp board
-                tempBoard.placeTile(row, col, tileToUse);
                 newPositions.add(new Point(row, col));
             }
 
@@ -352,10 +335,6 @@ public class WordFinder {
         return tilesNeeded;
     }
 
-    /**
-     * Finds a tile for a letter from available tiles.
-     * Prefers exact matches but will use blanks if necessary.
-     */
     private Tile findTileForLetter(char letter, List<Tile> availableTiles) {
         // First try to find an exact match
         for (Tile tile : availableTiles) {
@@ -367,16 +346,14 @@ public class WordFinder {
         // If no exact match, try to use a blank tile
         for (Tile tile : availableTiles) {
             if (tile.isBlank() && tile.getLetter() == '*') {
-                return Tile.createBlankTile(letter);
+                // Return the actual blank tile from the rack, not a new one
+                return tile;
             }
         }
 
         return null; // No suitable tile found
     }
 
-    /**
-     * Checks if a word is compatible with existing context.
-     */
     private boolean isWordCompatible(String word, Move.Direction direction,
                                      int startRow, int startCol,
                                      String prefix, String suffix) {
@@ -426,9 +403,6 @@ public class WordFinder {
         return true;
     }
 
-    /**
-     * Finds placements for the first move (must go through center).
-     */
     private void findPlacementsForFirstMove(String rackLetters, List<Tile> rackTiles,
                                             List<WordPlacement> placements) {
         int center = GameConstants.CENTER_SQUARE;
@@ -472,9 +446,6 @@ public class WordFinder {
         }
     }
 
-    /**
-     * Calculates score for first move.
-     */
     private int calculateFirstMoveScore(String word, List<Tile> tiles) {
         int score = 0;
         for (Tile tile : tiles) {
@@ -492,9 +463,6 @@ public class WordFinder {
         return score;
     }
 
-    /**
-     * Gets the partial words (prefix and suffix) at a specific position.
-     */
     private String[] getPartialWordsAt(int row, int col, Move.Direction direction) {
         StringBuilder prefix = new StringBuilder();
         StringBuilder suffix = new StringBuilder();
@@ -532,9 +500,6 @@ public class WordFinder {
         return new String[] {prefix.toString(), suffix.toString()};
     }
 
-    /**
-     * Gets tiles needed for a word from available tiles.
-     */
     private List<Tile> getTilesForWord(String word, List<Tile> availableTiles) {
         // Group tiles by letter
         Map<Character, List<Tile>> tilesByLetter = new HashMap<>();
@@ -562,9 +527,6 @@ public class WordFinder {
         return result;
     }
 
-    /**
-     * Gets all letters in the rack as a string.
-     */
     private String getAvailableLetters(Rack rack) {
         StringBuilder sb = new StringBuilder();
         for (Tile tile : rack.getTiles()) {
@@ -573,9 +535,6 @@ public class WordFinder {
         return sb.toString();
     }
 
-    /**
-     * Gets the unique letters in a string.
-     */
     private Set<Character> getUniqueLetters(String letters) {
         Set<Character> uniqueLetters = new HashSet<>();
         for (char c : letters.toCharArray()) {
@@ -584,9 +543,6 @@ public class WordFinder {
         return uniqueLetters;
     }
 
-    /**
-     * Checks if a position has adjacent tiles.
-     */
     private boolean hasAdjacentTile(int row, int col) {
         // Check each of the four adjacent positions
         boolean hasAdjacent = false;

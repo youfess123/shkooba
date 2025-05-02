@@ -1,7 +1,6 @@
 package model;
 
 import utilities.GameConstants;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,31 +35,26 @@ public class Board {
     }
 
     private Square.SquareType getSquareTypeFor(int row, int col) {
-        // Center square
         if (row == GameConstants.CENTER_SQUARE && col == GameConstants.CENTER_SQUARE) {
             return Square.SquareType.CENTER;
         }
 
-        // Triple word score (red)
         if ((row == 0 || row == 14) && (col == 0 || col == 7 || col == 14) ||
                 (row == 7 && (col == 0 || col == 14))) {
             return Square.SquareType.TRIPLE_WORD;
         }
 
-        // Double word score (pink)
         if (row == col || row + col == 14) {
             if (row > 0 && row < 14 && col > 0 && col < 14) {
                 return Square.SquareType.DOUBLE_WORD;
             }
         }
 
-        // Triple letter score (dark blue)
         if ((row == 1 || row == 13) && (col == 5 || col == 9) ||
                 (row == 5 || row == 9) && (col == 1 || col == 5 || col == 9 || col == 13)) {
             return Square.SquareType.TRIPLE_LETTER;
         }
 
-        // Double letter score (light blue)
         if ((row == 0 || row == 14) && (col == 3 || col == 11) ||
                 (row == 2 || row == 12) && (col == 6 || col == 8) ||
                 (row == 3 || row == 11) && (col == 0 || col == 7 || col == 14) ||
@@ -69,7 +63,6 @@ public class Board {
             return Square.SquareType.DOUBLE_LETTER;
         }
 
-        // Regular square
         return Square.SquareType.NORMAL;
     }
 

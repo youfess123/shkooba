@@ -19,6 +19,7 @@ public class MoveHandler {
         this.temporaryIndices = new ArrayList<>();
     }
 
+    // Temporary tile placement methods
     public boolean placeTileTemporarily(int rackIndex, int row, int col) {
         try {
             if (row < 0 || row >= Board.SIZE || col < 0 || col >= Board.SIZE) {
@@ -46,7 +47,6 @@ public class MoveHandler {
                 return false;
             }
 
-            // Place the tile temporarily
             temporaryPlacements.put(new Point(row, col), tile);
             temporaryIndices.add(rackIndex);
 
@@ -66,38 +66,42 @@ public class MoveHandler {
         return temporaryPlacements.get(new Point(row, col));
     }
 
+    public void cancelPlacements() {
+        clearTemporaryPlacements();
+    }
+
+    private void clearTemporaryPlacements() {
+        temporaryPlacements.clear();
+        temporaryIndices.clear();
+    }
+
+    // Placement validation methods
     public boolean isValidTemporaryPlacement(int row, int col) {
         Board board = game.getBoard();
 
-        // Check for existing tile
         if (board.getSquare(row, col).hasTile() || hasTemporaryTileAt(row, col)) {
             return false;
         }
 
-        // For the first move, require the center square
         if (board.isEmpty() && temporaryPlacements.isEmpty()) {
             return row == GameConstants.CENTER_SQUARE && col == GameConstants.CENTER_SQUARE;
         }
 
-        // Check for placement direction constraints
         if (!temporaryPlacements.isEmpty()) {
             return isValidDirectionalPlacement(row, col);
         }
 
-        // For subsequent moves, must connect to existing tiles
         return Board.hasAdjacentTile(board, row, col);
     }
 
     private boolean isValidDirectionalPlacement(int row, int col) {
         List<Point> placementPoints = new ArrayList<>(temporaryPlacements.keySet());
 
-        // For the first temporary tile, any adjacent square is valid
         if (placementPoints.size() == 1) {
             Point existingPoint = placementPoints.get(0);
             return (row == existingPoint.x || col == existingPoint.y);
         }
 
-        // For subsequent tiles, must follow the established direction
         Move.Direction direction = determineDirection();
         if (direction == null) {
             return false;
@@ -111,14 +115,12 @@ public class MoveHandler {
         Board board = game.getBoard();
 
         if (direction == Move.Direction.HORIZONTAL) {
-            // Check if all placements are in the same row
             for (Point p : placementPoints) {
                 if (p.x != row) {
                     return false;
                 }
             }
 
-            // Check if the new column is adjacent to existing placements
             int minCol = Integer.MAX_VALUE;
             int maxCol = Integer.MIN_VALUE;
             for (Point p : placementPoints) {
@@ -126,23 +128,19 @@ public class MoveHandler {
                 maxCol = Math.max(maxCol, p.y);
             }
 
-            // Allow placement adjacent to existing temporary tiles
             if (col >= minCol - 1 && col <= maxCol + 1) {
                 return true;
             }
 
-            // Or adjacent to a board tile
             return (col > 0 && board.getSquare(row, col - 1).hasTile()) ||
                     (col < Board.SIZE - 1 && board.getSquare(row, col + 1).hasTile());
         } else {
-            // Check if all placements are in the same column
             for (Point p : placementPoints) {
                 if (p.y != col) {
                     return false;
                 }
             }
 
-            // Check if the new row is adjacent to existing placements
             int minRow = Integer.MAX_VALUE;
             int maxRow = Integer.MIN_VALUE;
             for (Point p : placementPoints) {
@@ -150,17 +148,16 @@ public class MoveHandler {
                 maxRow = Math.max(maxRow, p.x);
             }
 
-            // Allow placement adjacent to existing temporary tiles
             if (row >= minRow - 1 && row <= maxRow + 1) {
                 return true;
             }
 
-            // Or adjacent to a board tile
             return (row > 0 && board.getSquare(row - 1, col).hasTile()) ||
                     (row < Board.SIZE - 1 && board.getSquare(row + 1, col).hasTile());
         }
     }
 
+    // Direction determination methods
     public Move.Direction determineDirection() {
         if (temporaryPlacements.size() <= 1) {
             if (temporaryPlacements.size() == 1) {
@@ -169,7 +166,6 @@ public class MoveHandler {
             return null;
         }
 
-        // Check if all placements are in the same row or column
         List<Point> points = new ArrayList<>(temporaryPlacements.keySet());
         boolean sameRow = true;
         int firstRow = points.get(0).x;
@@ -201,13 +197,11 @@ public class MoveHandler {
         int col = p.y;
         Board board = game.getBoard();
 
-        // Check for adjacent tiles in each direction
         boolean hasHorizontalAdjacent = (col > 0 && board.getSquare(row, col - 1).hasTile()) ||
                 (col < Board.SIZE - 1 && board.getSquare(row, col + 1).hasTile());
         boolean hasVerticalAdjacent = (row > 0 && board.getSquare(row - 1, col).hasTile()) ||
                 (row < Board.SIZE - 1 && board.getSquare(row + 1, col).hasTile());
 
-        // If only one direction has adjacents, use that
         if (hasHorizontalAdjacent && !hasVerticalAdjacent) {
             return Move.Direction.HORIZONTAL;
         }
@@ -215,7 +209,6 @@ public class MoveHandler {
             return Move.Direction.VERTICAL;
         }
 
-        // If both have adjacents, determine based on which forms longer words
         List<Square> horizontalWord = board.getHorizontalWord(row, col);
         List<Square> verticalWord = board.getVerticalWord(row, col);
 
@@ -225,22 +218,20 @@ public class MoveHandler {
             return Move.Direction.VERTICAL;
         }
 
-        // Default to null if can't determine
         return null;
     }
 
+    // Move execution methods
     public boolean commitPlacement() {
         if (temporaryPlacements.isEmpty()) {
             return false;
         }
 
-        // Determine direction
         Move.Direction direction = determineDirection();
         if (direction == null) {
-            direction = Move.Direction.HORIZONTAL; // Default to horizontal if can't determine
+            direction = Move.Direction.HORIZONTAL;
         }
 
-        // Find start position
         int startRow = Integer.MAX_VALUE;
         int startCol = Integer.MAX_VALUE;
         for (Point p : temporaryPlacements.keySet()) {
@@ -248,7 +239,6 @@ public class MoveHandler {
             startCol = Math.min(startCol, p.y);
         }
 
-        // For first move, must include center
         if (game.getBoard().isEmpty()) {
             boolean includesCenter = false;
             for (Point p : temporaryPlacements.keySet()) {
@@ -262,12 +252,10 @@ public class MoveHandler {
             }
         }
 
-        // Create the move
         Move placeMove = Move.createPlaceMove(game.getCurrentPlayer(), startRow, startCol, direction);
         List<Tile> tilesToPlace = getTilesInOrder(direction, startRow, startCol);
         placeMove.addTiles(tilesToPlace);
 
-        // Execute the move
         boolean success = game.executeMove(placeMove);
 
         if (success) {
@@ -275,41 +263,6 @@ public class MoveHandler {
         }
 
         return success;
-    }
-
-    private List<Tile> getTilesInOrder(Move.Direction direction, int startRow, int startCol) {
-        List<Tile> orderedTiles = new ArrayList<>();
-
-        if (direction == Move.Direction.HORIZONTAL) {
-            Map<Integer, Tile> colToTile = new TreeMap<>();
-            for (Map.Entry<Point, Tile> entry : temporaryPlacements.entrySet()) {
-                Point p = entry.getKey();
-                if (p.x == startRow) {
-                    colToTile.put(p.y, entry.getValue());
-                }
-            }
-            orderedTiles.addAll(colToTile.values());
-        } else {
-            Map<Integer, Tile> rowToTile = new TreeMap<>();
-            for (Map.Entry<Point, Tile> entry : temporaryPlacements.entrySet()) {
-                Point p = entry.getKey();
-                if (p.y == startCol) {
-                    rowToTile.put(p.x, entry.getValue());
-                }
-            }
-            orderedTiles.addAll(rowToTile.values());
-        }
-
-        return orderedTiles;
-    }
-
-    public void cancelPlacements() {
-        clearTemporaryPlacements();
-    }
-
-    private void clearTemporaryPlacements() {
-        temporaryPlacements.clear();
-        temporaryIndices.clear();
     }
 
     public boolean exchangeTiles(List<Tile> selectedTiles) {
@@ -338,17 +291,34 @@ public class MoveHandler {
         return game.executeMove(passMove);
     }
 
+    private List<Tile> getTilesInOrder(Move.Direction direction, int startRow, int startCol) {
+        List<Tile> orderedTiles = new ArrayList<>();
+
+        if (direction == Move.Direction.HORIZONTAL) {
+            Map<Integer, Tile> colToTile = new TreeMap<>();
+            for (Map.Entry<Point, Tile> entry : temporaryPlacements.entrySet()) {
+                Point p = entry.getKey();
+                if (p.x == startRow) {
+                    colToTile.put(p.y, entry.getValue());
+                }
+            }
+            orderedTiles.addAll(colToTile.values());
+        } else {
+            Map<Integer, Tile> rowToTile = new TreeMap<>();
+            for (Map.Entry<Point, Tile> entry : temporaryPlacements.entrySet()) {
+                Point p = entry.getKey();
+                if (p.y == startCol) {
+                    rowToTile.put(p.x, entry.getValue());
+                }
+            }
+            orderedTiles.addAll(rowToTile.values());
+        }
+
+        return orderedTiles;
+    }
+
     public Map<Point, Tile> getTemporaryPlacements() {
         return new HashMap<>(temporaryPlacements);
     }
 
-    /**
-     * Gets the indices of tiles in the rack that are currently placed temporarily on the board.
-     * This method is needed for the hint feature to avoid selecting tiles that are already in use.
-     *
-     * @return A list of rack indices
-     */
-    public List<Integer> getTemporaryIndices() {
-        return new ArrayList<>(temporaryIndices);
-    }
 }

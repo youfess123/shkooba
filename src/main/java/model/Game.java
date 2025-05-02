@@ -1,6 +1,5 @@
 package model;
 
-
 import utilities.GameConstants;
 import utilities.ScoreCalculator;
 import utilities.WordValidator;
@@ -18,12 +17,14 @@ public class Game {
     private final TileBag tileBag;
     private final List<Player> players;
     private final Dictionary dictionary;
+    private final List<Move> moveHistory;
+
     private int currentPlayerIndex;
     private int aiDifficulty = GameConstants.AI_EASY;
     private boolean gameOver;
     private int consecutivePasses;
-    private final List<Move> moveHistory;
 
+    // Initialization and setup
     public Game(InputStream dictionaryStream, String dictionaryName) throws IOException {
         this.board = new Board();
         this.tileBag = new TileBag();
@@ -49,10 +50,6 @@ public class Game {
         this.aiDifficulty = Math.max(1, Math.min(3, difficulty));
     }
 
-    public int getAiDifficulty() {
-        return aiDifficulty;
-    }
-
     public void start() {
         if (players.size() < GameConstants.MIN_PLAYERS) {
             throw new IllegalStateException("Cannot start game with fewer than " +
@@ -74,6 +71,16 @@ public class Game {
         logger.info("First player: " + getCurrentPlayer().getName());
     }
 
+    // Player management
+    public Player getCurrentPlayer() {
+        return players.get(currentPlayerIndex);
+    }
+
+    public void nextPlayer() {
+        currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
+        logger.info("Current player is now: " + getCurrentPlayer().getName());
+    }
+
     public void fillRack(Player player) {
         Rack rack = player.getRack();
         int tilesToDraw = rack.getEmptySlots();
@@ -88,41 +95,7 @@ public class Game {
         logger.fine("Filled " + player.getName() + "'s rack with " + drawnTiles.size() + " tiles");
     }
 
-    public Player getCurrentPlayer() {
-        return players.get(currentPlayerIndex);
-    }
-
-    public void nextPlayer() {
-        currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
-        logger.info("Current player is now: " + getCurrentPlayer().getName());
-    }
-
-    public Board getBoard() {
-        return board;
-    }
-
-    public TileBag getTileBag() {
-        return tileBag;
-    }
-
-    public Dictionary getDictionary() {
-        return dictionary;
-    }
-
-    public List<Player> getPlayers() {
-        return Collections.unmodifiableList(players);
-    }
-
-    public boolean isGameOver() {
-        return gameOver;
-    }
-
-    public List<Move> getMoveHistory() {
-        return Collections.unmodifiableList(moveHistory);
-    }
-
-    // In Game.java
-
+    // Move execution
     public boolean executeMove(Move move) {
         if (gameOver) {
             logger.warning("Game is already over");
@@ -175,7 +148,6 @@ public class Game {
     }
 
     private boolean executePlaceMove(Move move) {
-        // Validate the move
         if (!WordValidator.isValidPlaceMove(move, board, dictionary)) {
             logger.warning("Invalid place move");
             return false;
@@ -185,10 +157,8 @@ public class Game {
         Board tempBoard = Board.copyBoard(board);
         List<Point> newTilePositions = new ArrayList<>();
 
-        // Place tiles on temp board to validate words and calculate score
         placeTilesOnBoard(tempBoard, move, newTilePositions);
 
-        // Validate words formed
         List<String> formedWords = WordValidator.validateWords(
                 tempBoard, move, newTilePositions, dictionary);
 
@@ -199,12 +169,10 @@ public class Game {
 
         move.setFormedWords(formedWords);
 
-        // Calculate score
         Set<Point> newPositionsSet = new HashSet<>(newTilePositions);
         int score = ScoreCalculator.calculateMoveScore(move, tempBoard, formedWords, newPositionsSet);
         move.setScore(score);
 
-        // Apply the move to the actual board and update the player's rack
         for (int i = 0; i < move.getTiles().size(); i++) {
             Tile tile = move.getTiles().get(i);
             if (i < newTilePositions.size()) {
@@ -219,7 +187,6 @@ public class Game {
         consecutivePasses = 0;
         fillRack(player);
 
-        // Add bonus for using all tiles if the bag is empty
         if (player.getRack().isEmpty() && tileBag.isEmpty()) {
             player.addScore(EMPTY_RACK_BONUS);
             logger.info(player.getName() + " received " + EMPTY_RACK_BONUS +
@@ -238,7 +205,6 @@ public class Game {
         int currentCol = col;
 
         for (Tile tile : move.getTiles()) {
-            // Skip over existing tiles
             while (currentRow < Board.SIZE && currentCol < Board.SIZE &&
                     targetBoard.getSquare(currentRow, currentCol).hasTile()) {
                 if (direction == Move.Direction.HORIZONTAL) {
@@ -265,19 +231,16 @@ public class Game {
         Player player = move.getPlayer();
         List<Tile> tilesToExchange = move.getTiles();
 
-        // Check if there are enough tiles in the bag for exchange
         if (tileBag.getTileCount() < 1) {
             logger.warning("Not enough tiles in bag for exchange");
             return false;
         }
 
-        // Remove tiles from player's rack
         if (!player.getRack().removeTiles(tilesToExchange)) {
             logger.warning("Failed to remove tiles from rack");
             return false;
         }
 
-        // Draw new tiles and return the exchanged ones to the bag
         int numTilesToDraw = tilesToExchange.size();
         List<Tile> newTiles = tileBag.drawTiles(numTilesToDraw);
         player.getRack().addTiles(newTiles);
@@ -295,8 +258,8 @@ public class Game {
         return true;
     }
 
+    // Game state management
     public boolean checkGameOver() {
-        // Check if any player is out of tiles
         for (Player player : players) {
             if (player.isOutOfTiles() && tileBag.isEmpty()) {
                 gameOver = true;
@@ -305,7 +268,6 @@ public class Game {
             }
         }
 
-        // Check for too many consecutive passes
         if (consecutivePasses >= GameConstants.CONSECUTIVE_PASSES_TO_END) {
             gameOver = true;
             logger.info("Game over: " + consecutivePasses + " consecutive passes");
@@ -318,7 +280,6 @@ public class Game {
     private void finalizeGameScore() {
         Player outPlayer = null;
 
-        // Find player who went out (if any)
         for (Player player : players) {
             if (player.isOutOfTiles()) {
                 outPlayer = player;
@@ -327,7 +288,6 @@ public class Game {
         }
 
         if (outPlayer != null) {
-            // Player who went out gets points from other players' racks
             int bonusPoints = 0;
             for (Player player : players) {
                 if (player != outPlayer) {
@@ -342,7 +302,6 @@ public class Game {
             logger.info(outPlayer.getName() + " gains " + bonusPoints +
                     " points from other players' racks");
         } else {
-            // Game ended due to passes - everyone loses points for tiles in rack
             for (Player player : players) {
                 int rackValue = player.getRackValue();
                 player.addScore(-rackValue);
@@ -351,11 +310,39 @@ public class Game {
             }
         }
 
-        // Log final scores
         StringBuilder sb = new StringBuilder("Final scores:");
         for (Player player : players) {
             sb.append(" ").append(player.getName()).append(": ").append(player.getScore());
         }
         logger.info(sb.toString());
+    }
+
+    // Accessors
+    public Board getBoard() {
+        return board;
+    }
+
+    public TileBag getTileBag() {
+        return tileBag;
+    }
+
+    public Dictionary getDictionary() {
+        return dictionary;
+    }
+
+    public List<Player> getPlayers() {
+        return Collections.unmodifiableList(players);
+    }
+
+    public List<Move> getMoveHistory() {
+        return Collections.unmodifiableList(moveHistory);
+    }
+
+    public boolean isGameOver() {
+        return gameOver;
+    }
+
+    public int getAiDifficulty() {
+        return aiDifficulty;
     }
 }

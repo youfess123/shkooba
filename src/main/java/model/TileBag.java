@@ -1,54 +1,35 @@
 package model;
 
-
-
 import java.util.*;
 import java.util.logging.Logger;
 
-/**
- * Represents the bag of tiles in Scrabble.
- * Contains all tiles that haven't been distributed to players or placed on the board.
- */
 public class TileBag {
     private static final Logger logger = Logger.getLogger(TileBag.class.getName());
     private final List<Tile> tiles;
     private final Random random;
-
-    /**
-     * Information about a letter in Scrabble, including its count and point value.
-     */
-    public static class LetterInfo {
-        private final int count;
-        private final int value;
-
-        /**
-         * Creates new letter information.
-         *
-         * @param count The number of tiles for this letter
-         * @param value The point value of this letter
-         */
-        public LetterInfo(int count, int value) {
-            this.count = count;
-            this.value = value;
-        }
-
-        public int getCount() {
-            return count;
-        }
-
-        public int getValue() {
-            return value;
-        }
-    }
-
-    /**
-     * Standard English Scrabble letter distribution and point values.
-     */
     private static final Map<Character, LetterInfo> LETTER_DATA = initializeLetterData();
 
-    /**
-     * Initializes the standard letter distribution data.
-     */
+    // Initialization methods
+    public TileBag() {
+        this.tiles = new ArrayList<>();
+        this.random = new Random();
+        initializeTiles();
+        shuffle();
+    }
+
+    private void initializeTiles() {
+        for (Map.Entry<Character, LetterInfo> entry : LETTER_DATA.entrySet()) {
+            char letter = entry.getKey();
+            LetterInfo info = entry.getValue();
+
+            for (int i = 0; i < info.getCount(); i++) {
+                tiles.add(new Tile(letter, info.getValue()));
+            }
+        }
+
+        logger.info("Initialized tile bag with " + tiles.size() + " tiles");
+    }
+
     private static Map<Character, LetterInfo> initializeLetterData() {
         Map<Character, LetterInfo> data = new HashMap<>();
 
@@ -98,45 +79,12 @@ public class TileBag {
         return Collections.unmodifiableMap(data);
     }
 
-    /**
-     * Creates a new tile bag with the standard distribution of tiles.
-     */
-    public TileBag() {
-        this.tiles = new ArrayList<>();
-        this.random = new Random();
-        initializeTiles();
-        shuffle();
-    }
-
-    /**
-     * Initializes the bag with the standard set of tiles.
-     */
-    private void initializeTiles() {
-        for (Map.Entry<Character, LetterInfo> entry : LETTER_DATA.entrySet()) {
-            char letter = entry.getKey();
-            LetterInfo info = entry.getValue();
-
-            for (int i = 0; i < info.getCount(); i++) {
-                tiles.add(new Tile(letter, info.getValue()));
-            }
-        }
-
-        logger.info("Initialized tile bag with " + tiles.size() + " tiles");
-    }
-
-    /**
-     * Randomly shuffles the tiles in the bag.
-     */
+    // Tile management methods
     public void shuffle() {
         Collections.shuffle(tiles, random);
         logger.fine("Shuffled tile bag");
     }
 
-    /**
-     * Returns tiles to the bag and shuffles.
-     *
-     * @param tilesToReturn The tiles to return to the bag
-     */
     public void returnTiles(List<Tile> tilesToReturn) {
         if (tilesToReturn == null || tilesToReturn.isEmpty()) {
             logger.warning("No tiles to return to bag");
@@ -150,12 +98,6 @@ public class TileBag {
         shuffle();
     }
 
-    /**
-     * Draws the specified number of tiles from the bag.
-     *
-     * @param count The number of tiles to draw
-     * @return A list of drawn tiles, may be fewer than requested if the bag is depleted
-     */
     public List<Tile> drawTiles(int count) {
         List<Tile> drawnTiles = new ArrayList<>();
 
@@ -178,11 +120,6 @@ public class TileBag {
         return drawnTiles;
     }
 
-    /**
-     * Draws a single tile from the bag.
-     *
-     * @return The drawn tile, or null if the bag is empty
-     */
     public Tile drawTile() {
         if (tiles.isEmpty()) {
             logger.warning("Attempted to draw from empty tile bag");
@@ -191,22 +128,31 @@ public class TileBag {
         return tiles.remove(tiles.size() - 1);
     }
 
-    /**
-     * Gets the number of tiles remaining in the bag.
-     *
-     * @return The number of tiles
-     */
+    // Accessors
     public int getTileCount() {
         return tiles.size();
     }
 
-    /**
-     * Checks if the bag is empty.
-     *
-     * @return true if the bag has no tiles, false otherwise
-     */
     public boolean isEmpty() {
         return tiles.isEmpty();
     }
 
+    // Inner class for letter information
+    public static class LetterInfo {
+        private final int count;
+        private final int value;
+
+        public LetterInfo(int count, int value) {
+            this.count = count;
+            this.value = value;
+        }
+
+        public int getCount() {
+            return count;
+        }
+
+        public int getValue() {
+            return value;
+        }
+    }
 }

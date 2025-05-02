@@ -8,8 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-
-
 public class TilePlacer {
     private static final Logger logger = Logger.getLogger(TilePlacer.class.getName());
 
@@ -21,6 +19,7 @@ public class TilePlacer {
         this.selectedPositions = new ArrayList<>();
     }
 
+    // Tile selection methods
     public void selectTileFromRack(Player player, int index) {
         Rack rack = player.getRack();
 
@@ -31,12 +30,10 @@ public class TilePlacer {
         Tile tile = rack.getTile(index);
 
         if (selectedPositions.contains(index)) {
-            // Deselect the tile
             selectedTiles.remove(tile);
             selectedPositions.remove(Integer.valueOf(index));
             logger.fine("Deselected tile at index " + index + ": " + tile.getLetter());
         } else {
-            // Select the tile
             selectedTiles.add(tile);
             selectedPositions.add(index);
             logger.fine("Selected tile at index " + index + ": " + tile.getLetter());
@@ -48,6 +45,11 @@ public class TilePlacer {
         selectedPositions.clear();
     }
 
+    public boolean isTileSelected(int index) {
+        return selectedPositions.contains(index);
+    }
+
+    // Blank tile handling
     public void setBlankTileLetter(Player player, int rackIndex, char letter) {
         Rack rack = player.getRack();
 
@@ -57,33 +59,23 @@ public class TilePlacer {
 
         Tile currentTile = rack.getTile(rackIndex);
         if (!currentTile.isBlank()) {
-            return; // Only allow changing blank tiles
+            return;
         }
 
-        // Replace the blank tile in the rack with the assigned letter
         rack.removeTile(currentTile);
         Tile blankTile = Tile.createBlankTile(letter);
         rack.addTile(blankTile);
 
-
         logger.fine("Set blank tile letter to " + letter + " at index " + rackIndex);
 
-        // Update selection if this tile was selected
         if (selectedPositions.contains(rackIndex)) {
             int selectionIndex = selectedPositions.indexOf(rackIndex);
             selectedTiles.set(selectionIndex, blankTile);
         }
     }
 
-    public boolean isTileSelected(int index) {
-        return selectedPositions.contains(index);
-    }
-
-
-
+    // Accessors
     public List<Tile> getSelectedTiles() {
         return new ArrayList<>(selectedTiles);
     }
-
-
 }

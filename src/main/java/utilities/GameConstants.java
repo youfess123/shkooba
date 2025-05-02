@@ -16,7 +16,8 @@ public final class GameConstants {
 
     public static final int MAX_PLAYERS = 4;
 
-    public static final int CONSECUTIVE_PASSES_TO_END = 6;
+    public static final int CONSECUTIVE_PASSES_TO_END = 3;
+
     public static final String DEFAULT_DICTIONARY = "src/main/resources/Dictionary.txt";
 
     public static final int AI_EASY = 1;

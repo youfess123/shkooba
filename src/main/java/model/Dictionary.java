@@ -5,17 +5,22 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-
 public class Dictionary {
     private final Gaddag gaddag;
     private final Set<String> wordSet;
     private final String dictionaryName;
 
+    // Constructor and initialization
     public Dictionary(InputStream inputStream, String name) throws IOException {
         this.gaddag = new Gaddag();
         this.wordSet = new HashSet<>();
         this.dictionaryName = name;
 
+        loadWords(inputStream);
+        System.out.println("Loaded dictionary '" + dictionaryName + "' with " + wordSet.size() + " words");
+    }
+
+    private void loadWords(InputStream inputStream) throws IOException {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -26,10 +31,9 @@ public class Dictionary {
                 }
             }
         }
-
-        System.out.println("Loaded dictionary '" + dictionaryName + "' with " + wordSet.size() + " words");
     }
 
+    // Static loading methods
     public static InputStream loadDefaultDictionary() throws IOException {
         return loadFile(GameConstants.DEFAULT_DICTIONARY);
     }
@@ -37,7 +41,6 @@ public class Dictionary {
     public static InputStream loadFile(String path) throws IOException {
         InputStream is = Dictionary.class.getResourceAsStream(path);
 
-        // If not found as a resource, try as an external file
         if (is == null) {
             File file = new File(path);
             if (file.exists() && file.isFile()) {
@@ -50,14 +53,8 @@ public class Dictionary {
         return is;
     }
 
-    public boolean isValidWord(String word) {
-        if (word == null || word.isEmpty()) {
-            return false;
-        }
-        word = word.trim().toUpperCase();
-        return wordSet.contains(word);
-    }
 
+    // Accessors
     public String getName() {
         return dictionaryName;
     }
@@ -65,5 +62,4 @@ public class Dictionary {
     public Gaddag getGaddag() {
         return gaddag;
     }
-
 }

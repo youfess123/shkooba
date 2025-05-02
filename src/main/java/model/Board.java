@@ -8,6 +8,7 @@ public class Board {
     public static final int SIZE = GameConstants.BOARD_SIZE;
     private final Square[][] squares;
 
+    // Initialization
     public Board() {
         squares = new Square[SIZE][SIZE];
         initializeBoard();
@@ -19,19 +20,6 @@ public class Board {
                 squares[row][col] = new Square(row, col, getSquareTypeFor(row, col));
             }
         }
-    }
-
-    public Board copy() {
-        Board copy = new Board();
-        for (int r = 0; r < SIZE; r++) {
-            for (int c = 0; c < SIZE; c++) {
-                Square square = getSquare(r, c);
-                if (square.hasTile()) {
-                    copy.placeTile(r, c, square.getTile());
-                }
-            }
-        }
-        return copy;
     }
 
     private Square.SquareType getSquareTypeFor(int row, int col) {
@@ -66,6 +54,7 @@ public class Board {
         return Square.SquareType.NORMAL;
     }
 
+    // Board state accessors and modifiers
     public Square getSquare(int row, int col) {
         if (row < 0 || row >= SIZE || col < 0 || col >= SIZE) {
             throw new IndexOutOfBoundsException("Invalid position: (" + row + ", " + col + ")");
@@ -80,94 +69,6 @@ public class Board {
         }
     }
 
-    public static Board copyBoard(Board originalBoard) {
-        return originalBoard.copy();
-    }
-
-
-    public static boolean hasAdjacentTile(Board board, int row, int col) {
-        return board.hasAdjacentTile(row, col);
-    }
-
-    public List<Square> getAdjacentOccupiedSquares(int row, int col) {
-        List<Square> adjacent = new ArrayList<>();
-
-        // Check above
-        if (row > 0 && getSquare(row - 1, col).hasTile()) {
-            adjacent.add(getSquare(row - 1, col));
-        }
-
-        // Check below
-        if (row < SIZE - 1 && getSquare(row + 1, col).hasTile()) {
-            adjacent.add(getSquare(row + 1, col));
-        }
-
-        // Check left
-        if (col > 0 && getSquare(row, col - 1).hasTile()) {
-            adjacent.add(getSquare(row, col - 1));
-        }
-
-        // Check right
-        if (col < SIZE - 1 && getSquare(row, col + 1).hasTile()) {
-            adjacent.add(getSquare(row, col + 1));
-        }
-
-        return adjacent;
-    }
-
-    public boolean hasAdjacentTile(int row, int col) {
-        return !getAdjacentOccupiedSquares(row, col).isEmpty();
-    }
-
-    public List<Square> getHorizontalWord(int row, int col) {
-        List<Square> word = new ArrayList<>();
-
-        if (!getSquare(row, col).hasTile()) {
-            return word;
-        }
-
-        // Find the starting column of the word
-        int startCol = col;
-        while (startCol > 0 && getSquare(row, startCol - 1).hasTile()) {
-            startCol--;
-        }
-
-        // Collect all tiles in the word
-        int currentCol = startCol;
-        while (currentCol < SIZE && getSquare(row, currentCol).hasTile()) {
-            word.add(getSquare(row, currentCol));
-            currentCol++;
-        }
-
-        // Only return words with at least 2 letters
-        return word.size() >= 2 ? word : new ArrayList<>();
-    }
-
-    public List<Square> getVerticalWord(int row, int col) {
-        List<Square> word = new ArrayList<>();
-
-        if (!getSquare(row, col).hasTile()) {
-            return word;
-        }
-
-        // Find the starting row of the word
-        int startRow = row;
-        while (startRow > 0 && getSquare(startRow - 1, col).hasTile()) {
-            startRow--;
-        }
-
-        // Collect all tiles in the word
-        int currentRow = startRow;
-        while (currentRow < SIZE && getSquare(currentRow, col).hasTile()) {
-            word.add(getSquare(currentRow, col));
-            currentRow++;
-        }
-
-        // Only return words with at least 2 letters
-        return word.size() >= 2 ? word : new ArrayList<>();
-    }
-
-
     public boolean isEmpty() {
         for (int row = 0; row < SIZE; row++) {
             for (int col = 0; col < SIZE; col++) {
@@ -179,18 +80,108 @@ public class Board {
         return true;
     }
 
+    // Word finding methods
+    public List<Square> getHorizontalWord(int row, int col) {
+        List<Square> word = new ArrayList<>();
+
+        if (!getSquare(row, col).hasTile()) {
+            return word;
+        }
+
+        int startCol = col;
+        while (startCol > 0 && getSquare(row, startCol - 1).hasTile()) {
+            startCol--;
+        }
+
+        int currentCol = startCol;
+        while (currentCol < SIZE && getSquare(row, currentCol).hasTile()) {
+            word.add(getSquare(row, currentCol));
+            currentCol++;
+        }
+
+        return word.size() >= 2 ? word : new ArrayList<>();
+    }
+
+    public List<Square> getVerticalWord(int row, int col) {
+        List<Square> word = new ArrayList<>();
+
+        if (!getSquare(row, col).hasTile()) {
+            return word;
+        }
+
+        int startRow = row;
+        while (startRow > 0 && getSquare(startRow - 1, col).hasTile()) {
+            startRow--;
+        }
+
+        int currentRow = startRow;
+        while (currentRow < SIZE && getSquare(currentRow, col).hasTile()) {
+            word.add(getSquare(currentRow, col));
+            currentRow++;
+        }
+
+        return word.size() >= 2 ? word : new ArrayList<>();
+    }
+
+    // Adjacency checking methods
+    public List<Square> getAdjacentOccupiedSquares(int row, int col) {
+        List<Square> adjacent = new ArrayList<>();
+
+        if (row > 0 && getSquare(row - 1, col).hasTile()) {
+            adjacent.add(getSquare(row - 1, col));
+        }
+
+        if (row < SIZE - 1 && getSquare(row + 1, col).hasTile()) {
+            adjacent.add(getSquare(row + 1, col));
+        }
+
+        if (col > 0 && getSquare(row, col - 1).hasTile()) {
+            adjacent.add(getSquare(row, col - 1));
+        }
+
+        if (col < SIZE - 1 && getSquare(row, col + 1).hasTile()) {
+            adjacent.add(getSquare(row, col + 1));
+        }
+
+        return adjacent;
+    }
+
+    public boolean hasAdjacentTile(int row, int col) {
+        return !getAdjacentOccupiedSquares(row, col).isEmpty();
+    }
+
+    public static boolean hasAdjacentTile(Board board, int row, int col) {
+        return board.hasAdjacentTile(row, col);
+    }
+
+    // Utility methods
+    public Board copy() {
+        Board copy = new Board();
+        for (int r = 0; r < SIZE; r++) {
+            for (int c = 0; c < SIZE; c++) {
+                Square square = getSquare(r, c);
+                if (square.hasTile()) {
+                    copy.placeTile(r, c, square.getTile());
+                }
+            }
+        }
+        return copy;
+    }
+
+    public static Board copyBoard(Board originalBoard) {
+        return originalBoard.copy();
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
 
-        // Column headers
         sb.append("   ");
         for (int col = 0; col < SIZE; col++) {
             sb.append(String.format("%2d ", col + 1));
         }
         sb.append("\n");
 
-        // Rows
         for (int row = 0; row < SIZE; row++) {
             sb.append(String.format("%2d ", row + 1));
             for (int col = 0; col < SIZE; col++) {

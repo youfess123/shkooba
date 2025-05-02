@@ -17,10 +17,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/**
- * Service to look up word definitions from external dictionary APIs or local sources.
- * Provides word definitions for educational purposes in the Scrabble game.
- */
 public class DictionaryService {
     private static final Logger logger = Logger.getLogger(DictionaryService.class.getName());
 
@@ -30,9 +26,6 @@ public class DictionaryService {
 
     private final HttpClient httpClient;
 
-    /**
-     * Represents a word definition with part of speech and meaning
-     */
     public static class WordDefinition {
         private final String word;
         private final String partOfSpeech;

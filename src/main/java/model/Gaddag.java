@@ -6,69 +6,39 @@ import java.util.List;
 
 /**
  * Enhanced GADDAG data structure for efficient word lookup and validation in Scrabble.
- *
- * A GADDAG is a specialized directed acyclic word graph that allows for
- * efficient finding of all valid words that can be placed through a specific
- * position on the Scrabble board.
  */
 public class Gaddag {
-    // Delimiter used to mark the pivot point in word encodings
     private static final char DELIMITER = '+';
-
-    // Root node of the GADDAG
     private final Node root;
 
-    /**
-     * Creates a new empty GADDAG.
-     */
+    // Initialization
     public Gaddag() {
         this.root = new Node();
     }
 
-    /**
-     * Inserts a word into the GADDAG.
-     *
-     * For each position in the word, we create an entry starting from
-     * that position, going backwards to the start, then the delimiter,
-     * then forwards to the end.
-     *
-     * @param word The word to insert
-     */
+    // Word insertion methods
     public void insert(String word) {
         word = word.toUpperCase();
 
         if (word.length() < 2) {
-            return; // Skip single letter words
+            return;
         }
 
-        // Insert all possible ways to build this word
         for (int i = 0; i < word.length(); i++) {
             StringBuilder sequence = new StringBuilder();
 
-            // Add reversed prefix (letters before the current position, in reverse)
             for (int j = i; j > 0; j--) {
                 sequence.append(word.charAt(j - 1));
             }
 
-            // Add delimiter
             sequence.append(DELIMITER);
-
-            // Add suffix (letters from current position to end)
             sequence.append(word.substring(i));
-
-            // Insert this sequence
             insertSequence(sequence.toString());
         }
 
-        // Also insert from start to end (for playing from scratch)
         insertSequence(DELIMITER + word);
     }
 
-    /**
-     * Inserts a sequence into the GADDAG.
-     *
-     * @param sequence The sequence to insert
-     */
     private void insertSequence(String sequence) {
         Node current = root;
 
@@ -80,12 +50,7 @@ public class Gaddag {
         current.setWord(true);
     }
 
-    /**
-     * Checks if a word exists in the dictionary.
-     *
-     * @param word The word to check
-     * @return true if the word exists, false otherwise
-     */
+    // Word validation methods
     public boolean contains(String word) {
         word = word.toUpperCase();
 
@@ -93,7 +58,6 @@ public class Gaddag {
             return false;
         }
 
-        // For lookup, we use the sequence starting with the delimiter
         Node current = root;
         String sequence = DELIMITER + word;
 
@@ -107,13 +71,7 @@ public class Gaddag {
         return current.isWord();
     }
 
-    /**
-     * Validates a word placement on the board.
-     *
-     * @param board The game board
-     * @param move The move to validate
-     * @return true if valid, false otherwise
-     */
+    // Word placement validation
     public boolean validateWordPlacement(Board board, Move move) {
         if (move.getTiles().isEmpty()) {
             return false;
@@ -129,7 +87,6 @@ public class Gaddag {
             }
         }
 
-        // Place tiles on temporary board
         List<Point> newTilePositions = new ArrayList<>();
         int row = move.getStartRow();
         int col = move.getStartCol();
@@ -139,7 +96,6 @@ public class Gaddag {
         int currentCol = col;
 
         for (Tile tile : move.getTiles()) {
-            // Skip over existing tiles
             while (currentRow < Board.SIZE && currentCol < Board.SIZE &&
                     tempBoard.getSquare(currentRow, currentCol).hasTile()) {
                 if (direction == Move.Direction.HORIZONTAL) {
@@ -150,7 +106,7 @@ public class Gaddag {
             }
 
             if (currentRow >= Board.SIZE || currentCol >= Board.SIZE) {
-                return false; // Ran off the board
+                return false;
             }
 
             tempBoard.placeTile(currentRow, currentCol, tile);
@@ -163,11 +119,10 @@ public class Gaddag {
             }
         }
 
-        // First move must cover center square
         if (board.isEmpty()) {
             boolean touchesCenter = false;
             for (Point p : newTilePositions) {
-                if (p.x == 7 && p.y == 7) { // Center is at (7,7)
+                if (p.x == 7 && p.y == 7) {
                     touchesCenter = true;
                     break;
                 }
@@ -176,12 +131,9 @@ public class Gaddag {
                 return false;
             }
         }
-        List<String> formedWords = validateWords(tempBoard, move, newTilePositions);
 
-        if (formedWords.isEmpty()) {
-            return false;
-        }
-        return true;
+        List<String> formedWords = validateWords(tempBoard, move, newTilePositions);
+        return !formedWords.isEmpty();
     }
 
     public List<String> validateWords(Board board, Move move, List<Point> newTilePositions) {
@@ -190,18 +142,17 @@ public class Gaddag {
         String mainWord = findMainWord(board, move);
 
         if (mainWord.length() < 2 || !contains(mainWord)) {
-            return formedWords; // Empty list indicates invalid placement
+            return formedWords;
         }
 
         formedWords.add(mainWord);
 
-        // Check all crossing words
         for (Point p : newTilePositions) {
             String crossWord = findCrossWord(board, move.getDirection(), p);
 
             if (crossWord.length() >= 2) {
                 if (!contains(crossWord)) {
-                    return new ArrayList<>(); // Invalid crossing word
+                    return new ArrayList<>();
                 }
                 formedWords.add(crossWord);
             }
@@ -210,13 +161,7 @@ public class Gaddag {
         return formedWords;
     }
 
-    /**
-     * Finds the main word formed by a move.
-     *
-     * @param board The board
-     * @param move The move
-     * @return The main word string
-     */
+    // Word finding methods
     private String findMainWord(Board board, Move move) {
         int row = move.getStartRow();
         int col = move.getStartCol();
@@ -231,14 +176,6 @@ public class Gaddag {
         }
     }
 
-    /**
-     * Finds a crossing word at a position.
-     *
-     * @param board The board
-     * @param direction The direction of the main word
-     * @param position The position to check
-     * @return The crossing word string
-     */
     private String findCrossWord(Board board, Move.Direction direction, Point position) {
         if (direction == Move.Direction.HORIZONTAL) {
             int startRow = findWordStart(board, position.x, position.y, false);
@@ -249,15 +186,6 @@ public class Gaddag {
         }
     }
 
-    /**
-     * Finds the starting position of a word.
-     *
-     * @param board The board
-     * @param row The row
-     * @param col The column
-     * @param isHorizontal Whether searching horizontally
-     * @return The starting position
-     */
     private int findWordStart(Board board, int row, int col, boolean isHorizontal) {
         int position = isHorizontal ? col : row;
         while (position > 0) {
@@ -273,15 +201,6 @@ public class Gaddag {
         return position;
     }
 
-    /**
-     * Gets a word starting at a position.
-     *
-     * @param board The board
-     * @param row The starting row
-     * @param col The starting column
-     * @param direction The direction
-     * @return The word string
-     */
     private String getWordAt(Board board, int row, int col, Move.Direction direction) {
         StringBuilder word = new StringBuilder();
         int currentRow = row;
@@ -302,91 +221,58 @@ public class Gaddag {
         return word.toString();
     }
 
-    /**
-     * Finds all valid words that can be formed using the given rack
-     * with the given anchor letter at the anchor position.
-     *
-     * @param rack The letters available in the player's rack
-     * @param anchor The letter at the anchor position
-     * @param allowLeft Whether letters can be placed to the left of the anchor
-     * @param allowRight Whether letters can be placed to the right of the anchor
-     * @return A set of valid words
-     */
+    // Word generation from rack
     public Set<String> getWordsFrom(String rack, char anchor, boolean allowLeft, boolean allowRight) {
         Set<String> words = new HashSet<>();
         StringBuilder currentWord = new StringBuilder();
         currentWord.append(anchor);
 
-        // Convert rack to a map of letter -> count
         Map<Character, Integer> rackMap = new HashMap<>();
         for (char c : rack.toUpperCase().toCharArray()) {
             rackMap.put(c, rackMap.getOrDefault(c, 0) + 1);
         }
 
-        // Start from the anchor letter in the GADDAG
         Node current = root.getChild(anchor);
         if (current == null) {
-            return words; // Anchor letter not in GADDAG
+            return words;
         }
 
-        // Perform depth-first search to find all valid words
         dfs(current, currentWord, rackMap, words, allowLeft, allowRight, false);
-
         return words;
     }
 
-    /**
-     * Helper method to perform depth-first search in the GADDAG.
-     *
-     * @param node Current node in the GADDAG
-     * @param wordBuilder Current word being built
-     * @param rack Available letters in the rack
-     * @param validWords Set to collect valid words
-     * @param allowLeft Whether to allow exploring left of pivot
-     * @param allowRight Whether to allow exploring right of pivot
-     * @param passedDelimiter Whether we've passed the delimiter
-     */
     private void dfs(Node node, StringBuilder wordBuilder, Map<Character, Integer> rack,
                      Set<String> validWords, boolean allowLeft, boolean allowRight, boolean passedDelimiter) {
 
-        // If we have a complete word after passing the delimiter, add it
         if (node.isWord() && passedDelimiter) {
             validWords.add(wordBuilder.toString());
         }
 
-        // Explore all child nodes
         for (Map.Entry<Character, Node> entry : node.getChildren().entrySet()) {
             char c = entry.getKey();
             Node child = entry.getValue();
 
             if (c == DELIMITER) {
-                // We've hit the delimiter - move to right side exploration
                 if (allowLeft) {
                     dfs(child, wordBuilder, rack, validWords, allowLeft, allowRight, true);
                 }
             } else if (!passedDelimiter && allowLeft) {
-                // We're exploring to the left of the pivot
                 if (rack.getOrDefault(c, 0) > 0) {
-                    // We have this letter in our rack
-                    rack.put(c, rack.get(c) - 1); // Use the letter
-                    wordBuilder.insert(0, c);     // Add to start of word
+                    rack.put(c, rack.get(c) - 1);
+                    wordBuilder.insert(0, c);
 
                     dfs(child, wordBuilder, rack, validWords, allowLeft, allowRight, passedDelimiter);
 
-                    // Backtrack
                     wordBuilder.deleteCharAt(0);
                     rack.put(c, rack.get(c) + 1);
                 }
             } else if (passedDelimiter && allowRight) {
-                // We're exploring to the right of the pivot
                 if (rack.getOrDefault(c, 0) > 0) {
-                    // We have this letter in our rack
-                    rack.put(c, rack.get(c) - 1);  // Use the letter
-                    wordBuilder.append(c);         // Add to end of word
+                    rack.put(c, rack.get(c) - 1);
+                    wordBuilder.append(c);
 
                     dfs(child, wordBuilder, rack, validWords, allowLeft, allowRight, passedDelimiter);
 
-                    // Backtrack
                     wordBuilder.deleteCharAt(wordBuilder.length() - 1);
                     rack.put(c, rack.get(c) + 1);
                 }
@@ -394,10 +280,7 @@ public class Gaddag {
         }
     }
 
-
-    /**
-     * Node class representing a position in the GADDAG.
-     */
+    // Node inner class
     private static class Node {
         private final Map<Character, Node> children;
         private boolean isWord;

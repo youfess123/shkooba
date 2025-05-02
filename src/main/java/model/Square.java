@@ -1,6 +1,5 @@
 package model;
 
-import model.Tile;
 
 public class Square {
     public enum SquareType {

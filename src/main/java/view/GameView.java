@@ -14,10 +14,6 @@ import utilities.WordFinder;
 
 import java.util.List;
 
-/**
- * Main view class for the Scrabble game UI.
- * Organizes the board, rack, info panel, and control buttons.
- */
 public class GameView extends BorderPane {
     private final GameController controller;
     private final BoardView boardView;
@@ -25,11 +21,6 @@ public class GameView extends BorderPane {
     private final GameInfoView gameInfoView;
     private final ControlPanel controlPanel;
 
-    /**
-     * Creates a new game view with the specified controller.
-     *
-     * @param controller The game controller
-     */
     public GameView(GameController controller) {
         this.controller = controller;
         this.boardView = new BoardView(controller);
@@ -45,11 +36,6 @@ public class GameView extends BorderPane {
         setupListeners();
     }
 
-    /**
-     * Creates the bottom pane containing rack and control panel.
-     *
-     * @return The bottom pane
-     */
     private VBox createBottomPane() {
         VBox bottomPane = new VBox(10);
         bottomPane.setPadding(new Insets(10, 0, 0, 0));
@@ -57,9 +43,6 @@ public class GameView extends BorderPane {
         return bottomPane;
     }
 
-    /**
-     * Sets up listeners for game events.
-     */
     private void setupListeners() {
         controller.setBoardUpdateListener(() -> boardView.updateBoard());
         controller.setRackUpdateListener(() -> rackView.updateRack());
@@ -69,8 +52,6 @@ public class GameView extends BorderPane {
             controlPanel.updateButtonStates();
         });
         controller.setGameOverListener(this::showEndGameView);
-
-        // Add this line to update button states when temporary placements change
         controller.setTemporaryPlacementListener(() -> controlPanel.updateButtonStates());
     }
 
@@ -80,13 +61,34 @@ public class GameView extends BorderPane {
         }
     }
 
+    private void showInfo(String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Information");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    private void showEndGameView() {
+        EndGameView endGameView = new EndGameView(controller.getPlayers());
+        endGameView.show();
+    }
+
+    private void showError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Error");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
     private class ControlPanel extends VBox {
         private final Button playButton;
         private final Button cancelButton;
         private final Button exchangeButton;
         private final Button passButton;
         private final Button wordHistoryButton;
-        private final Button hintsButton; // Replace toggleDefinitionsButton with hintsButton
+        private final Button hintsButton;
         private HintView hintView;
 
         public ControlPanel(GameController controller) {
@@ -94,7 +96,6 @@ public class GameView extends BorderPane {
             setPadding(new Insets(10));
             setStyle("-fx-background-color: #e0e0e0; -fx-border-color: #cccccc; -fx-border-radius: 5;");
 
-            // Create main game action buttons
             playButton = new Button("Play Word");
             playButton.setOnAction(e -> {
                 boolean success = controller.commitPlacement();
@@ -145,20 +146,16 @@ public class GameView extends BorderPane {
                 }
             });
 
-            // Create word history button
             wordHistoryButton = new Button("Word History");
             wordHistoryButton.setOnAction(e -> controller.showWordHistory());
             wordHistoryButton.setTooltip(new Tooltip("View definitions of previously played words"));
 
-            // Create hints button (replacing the definitions button)
             hintsButton = new Button("Show Hints");
             hintsButton.setOnAction(e -> showHints());
             hintsButton.setTooltip(new Tooltip("Show possible word placements"));
 
-            // Initialize hint dialog
             hintView = new HintView();
 
-            // Create button rows
             HBox gameControlsBox = new HBox(10);
             gameControlsBox.getChildren().addAll(playButton, cancelButton, exchangeButton, passButton);
             for (var node : gameControlsBox.getChildren()) {
@@ -173,10 +170,8 @@ public class GameView extends BorderPane {
                 ((Button) node).setMaxWidth(Double.MAX_VALUE);
             }
 
-            // Add button rows to the control panel
             getChildren().addAll(gameControlsBox, educationalControlsBox);
 
-            // Set tooltips
             playButton.setTooltip(new Tooltip("Confirm and play the word"));
             cancelButton.setTooltip(new Tooltip("Cancel tile placement"));
             exchangeButton.setTooltip(new Tooltip("Exchange selected tiles for new ones"));
@@ -194,9 +189,6 @@ public class GameView extends BorderPane {
             }
         }
 
-        /**
-         * Closes the hint dialog if it's open.
-         */
         public void closeHintDialog() {
             if (hintView != null) {
                 hintView.close();
@@ -213,34 +205,8 @@ public class GameView extends BorderPane {
             cancelButton.setDisable(!isPlayerTurn || !hasTemporaryPlacements);
             exchangeButton.setDisable(!isPlayerTurn || hasTemporaryPlacements || !hasSelectedTiles);
             passButton.setDisable(!isPlayerTurn || hasTemporaryPlacements);
-            hintsButton.setDisable(!isPlayerTurn); // Only disabled if not player's turn
+            hintsButton.setDisable(!isPlayerTurn);
             wordHistoryButton.setDisable(controller.getMoveHistory().isEmpty());
         }
-    }
-
-    /**
-     * Shows an information dialog.
-     *
-     * @param message The message to display
-     */
-    private void showInfo(String message) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Information");
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
-    }
-
-    private void showEndGameView() {
-        EndGameView endGameView = new EndGameView(controller.getPlayers());
-        endGameView.show();
-    }
-
-    private void showError(String message) {
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle("Error");
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
     }
 }

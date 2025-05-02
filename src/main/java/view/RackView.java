@@ -45,18 +45,15 @@ public class RackView extends HBox {
         Player currentPlayer = controller.getCurrentPlayer();
         Rack rack = currentPlayer.getRack();
 
-        // Add player label
         Label playerLabel = new Label("Current Player: " + currentPlayer.getName());
         playerLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
         playerLabel.setPadding(new Insets(0, 20, 0, 0));
         getChildren().add(playerLabel);
 
-        // Add tiles
         for (int i = 0; i < rack.size(); i++) {
             Tile tile = rack.getTile(i);
             TileView tileView = new TileView(tile, i);
 
-            // Apply selection styling if tile is selected
             if (controller.isTileSelected(i)) {
                 tileView.select();
             }
@@ -65,7 +62,6 @@ public class RackView extends HBox {
             getChildren().add(tileView);
         }
 
-        // Add empty slots
         for (int i = 0; i < rack.getEmptySlots(); i++) {
             EmptySlotView emptySlot = new EmptySlotView();
             getChildren().add(emptySlot);
@@ -86,7 +82,6 @@ public class RackView extends HBox {
             setPrefSize(GameConstants.TILE_SIZE, GameConstants.TILE_SIZE);
             setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, new CornerRadii(3), BorderWidths.DEFAULT)));
 
-            // Use a different background color for blank tiles
             if (tile.isBlank()) {
                 setBackground(new Background(new BackgroundFill(Color.LIGHTYELLOW, CornerRadii.EMPTY, Insets.EMPTY)));
             } else {
@@ -97,7 +92,6 @@ public class RackView extends HBox {
             letterLabel.setFont(Font.font("Arial", FontWeight.BOLD, 18));
             letterLabel.setAlignment(Pos.CENTER);
 
-            // Special styling for blank tiles
             if (tile.isBlank() && tile.getLetter() != '*') {
                 letterLabel.setTextFill(Color.BLUE);
             }
@@ -114,59 +108,47 @@ public class RackView extends HBox {
         }
 
         private void setupEvents() {
-            // Click to select
             setOnMouseClicked(event -> {
                 if (tile.isBlank() && tile.getLetter() == '*') {
-                    // If it's an unused blank tile, show letter selection dialog
                     BlankTileView dialog = new BlankTileView();
                     char selectedLetter = dialog.showAndWait();
                     if (selectedLetter != '\0') {
                         controller.setBlankTileLetter(index, selectedLetter);
-                        updateRack(); // Update to show the new letter
+                        updateRack();
                     }
                 } else {
                     controller.selectTileFromRack(index);
-                    updateRack(); // Update to reflect selection changes
+                    updateRack();
                 }
             });
 
-            // Drag and drop support
             setOnDragDetected(event -> {
-                // Only start drag if tile is selected (click first, then drag)
                 if (controller.isTileSelected(index)) {
-                    // For blank tiles without assigned letter, prompt for one
                     if (tile.isBlank() && tile.getLetter() == '*') {
                         BlankTileView dialog = new BlankTileView();
                         char selectedLetter = dialog.showAndWait();
                         if (selectedLetter != '\0') {
                             controller.setBlankTileLetter(index, selectedLetter);
-                            updateRack(); // Update to show the new letter
+                            updateRack();
                         } else {
-                            // User cancelled, don't start drag
                             event.consume();
                             return;
                         }
                     }
 
-                    // Start drag operation
                     Dragboard db = startDragAndDrop(TransferMode.MOVE);
                     ClipboardContent content = new ClipboardContent();
                     content.putString(String.valueOf(index));
                     db.setContent(content);
 
-                    // You can also set a drag view if desired
-                    // setDragView(snapshot);
-
                     event.consume();
                 } else {
-                    // First select the tile, then allow dragging on next attempt
                     controller.selectTileFromRack(index);
                     updateRack();
                 }
             });
 
             setOnDragDone(event -> {
-                // The tile may have been placed or dropped elsewhere
                 event.consume();
             });
         }
@@ -177,15 +159,6 @@ public class RackView extends HBox {
             setBorder(new Border(new BorderStroke(Color.ORANGE, BorderStrokeStyle.SOLID, new CornerRadii(3), new BorderWidths(2))));
         }
 
-        public void deselect() {
-            isSelected = false;
-            if (tile.isBlank()) {
-                setBackground(new Background(new BackgroundFill(Color.LIGHTYELLOW, CornerRadii.EMPTY, Insets.EMPTY)));
-            } else {
-                setBackground(new Background(new BackgroundFill(Color.BURLYWOOD, CornerRadii.EMPTY, Insets.EMPTY)));
-            }
-            setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, new CornerRadii(3), BorderWidths.DEFAULT)));
-        }
     }
 
     private class EmptySlotView extends StackPane {

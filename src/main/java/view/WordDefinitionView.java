@@ -23,15 +23,9 @@ import service.DictionaryService.WordDefinition;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * Dialog to display word definitions after a player makes a move
- * or when looking up definitions from word history.
- */
 public class WordDefinitionView {
     private final Stage dialog;
     private final DictionaryService dictionaryService;
-
-    // UI components for the word definition display
     private final Label titleLabel;
     private final VBox definitionsBox;
     private final Button closeButton;
@@ -47,7 +41,6 @@ public class WordDefinitionView {
         dialog.setMinWidth(400);
         dialog.setMinHeight(300);
 
-        // Create UI components
         titleLabel = new Label();
         titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 18));
         titleLabel.setAlignment(Pos.CENTER);
@@ -88,16 +81,10 @@ public class WordDefinitionView {
     }
 
     public void showDefinition(String word) {
-        // Clear previous content
         definitionsBox.getChildren().clear();
-
-        // Set the title
         titleLabel.setText("Definition: " + word.toUpperCase());
-
-        // Show loading indicator
         definitionsBox.getChildren().add(loadingLabel);
 
-        // Show the dialog
         dialog.show();
         dialog.setOnShown(e -> loadDefinition(word));
     }
@@ -107,15 +94,9 @@ public class WordDefinitionView {
             return;
         }
 
-
-
-        // Clear previous content
         definitionsBox.getChildren().clear();
-
-        // Set the title
         titleLabel.setText("Word Definitions");
 
-        // Create a list view for word selection
         ListView<String> wordListView = new ListView<>();
         wordListView.getItems().addAll(words);
 
@@ -124,11 +105,8 @@ public class WordDefinitionView {
 
         VBox selectionBox = new VBox(10);
         selectionBox.getChildren().addAll(instructionLabel, wordListView);
-
-        // Show the selection UI
         definitionsBox.getChildren().add(selectionBox);
 
-        // Handle word selection
         wordListView.getSelectionModel().selectedItemProperty().addListener((obs, oldWord, newWord) -> {
             if (newWord != null) {
                 definitionsBox.getChildren().clear();
@@ -137,15 +115,9 @@ public class WordDefinitionView {
             }
         });
 
-        // Show the dialog
         dialog.show();
     }
 
-    /**
-     * Loads the definition for a word and updates the UI when it's available.
-     *
-     * @param word The word to look up
-     */
     private void loadDefinition(String word) {
         CompletableFuture<List<WordDefinition>> future = dictionaryService.getDefinitions(word);
 
@@ -156,12 +128,6 @@ public class WordDefinitionView {
         });
     }
 
-    /**
-     * Updates the UI to display the loaded definitions.
-     *
-     * @param word The word that was looked up
-     * @param definitions The list of definitions
-     */
     private void displayDefinitions(String word, List<WordDefinition> definitions) {
         definitionsBox.getChildren().clear();
 
@@ -198,9 +164,6 @@ public class WordDefinitionView {
         }
     }
 
-    /**
-     * Closes the dialog if it's showing.
-     */
     public void close() {
         if (dialog.isShowing()) {
             dialog.close();
